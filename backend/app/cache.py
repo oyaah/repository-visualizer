@@ -9,7 +9,6 @@ from pathlib import Path
 class CacheEntry:
     summary: str
     content_hash: str
-    provider: str
     model: str
 
 
@@ -41,14 +40,14 @@ class SummaryCache:
     def get(self, key: str) -> CacheEntry | None:
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT summary, content_hash, provider, model FROM summaries WHERE key = ?",
+                "SELECT summary, content_hash, model FROM summaries WHERE key = ?",
                 (key,),
             ).fetchone()
         if not row:
             return None
-        return CacheEntry(summary=row[0], content_hash=row[1], provider=row[2], model=row[3])
+        return CacheEntry(summary=row[0], content_hash=row[1], model=row[2])
 
-    def set(self, key: str, file_path: str, content_hash: str, prompt_version: str, provider: str, model: str, summary: str) -> None:
+    def set(self, key: str, file_path: str, content_hash: str, prompt_version: str, model: str, summary: str) -> None:
         with self._connect() as conn:
             conn.execute(
                 """
@@ -56,6 +55,5 @@ class SummaryCache:
                   (key, file_path, content_hash, prompt_version, provider, model, summary)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (key, file_path, content_hash, prompt_version, provider, model, summary),
+                (key, file_path, content_hash, prompt_version, "openai", model, summary),
             )
-

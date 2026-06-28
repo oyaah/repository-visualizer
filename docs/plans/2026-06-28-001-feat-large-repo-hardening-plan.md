@@ -78,7 +78,7 @@ The MVP can analyze a large public repo such as Django, but returning and render
 ## Scope Boundaries
 
 - **Deferred to Follow-Up Work:** Background analysis jobs, cancellation, persisted graph snapshots, backend neighborhood/subgraph APIs, AST-grade JavaScript parsing, and `.gitignore` parity belong in later commits.
-- **Out of Scope:** Hardcoded behavior for any specific public repository, hosted multi-user scanning, and sending source files to AI providers without the existing explicit local API-key setup.
+- **Out of Scope:** Hardcoded behavior for any specific public repository, hosted multi-user scanning, and sending source files to OpenAI without the existing explicit local API-key setup.
 
 ---
 

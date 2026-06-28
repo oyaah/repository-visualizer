@@ -35,7 +35,6 @@ describe('NodePanel', () => {
       requires_generation: false,
       error: 'Set OPENAI_API_KEY to enable OpenAI summaries.',
       content_hash: 'hash',
-      provider: 'openai',
       model: 'gpt-4.1-mini'
     });
   });
@@ -47,13 +46,12 @@ describe('NodePanel', () => {
     expect(screen.getByText('src/utils.py')).toBeInTheDocument();
     expect(screen.getByText('tests/test_main.py')).toBeInTheDocument();
     expect(screen.getByText('os')).toBeInTheDocument();
-    expect(screen.getByLabelText('AI provider')).toBeInTheDocument();
   });
 
   it('loads summary state when a node is selected', async () => {
     render(<NodePanel rootPath="/tmp/repo" node={node} />);
 
-    await waitFor(() => expect(summarizeMock).toHaveBeenCalledWith('/tmp/repo', 'src/main.py', 'openai', true));
+    await waitFor(() => expect(summarizeMock).toHaveBeenCalledWith('/tmp/repo', 'src/main.py', true));
     expect(await screen.findByText('AI disabled')).toBeInTheDocument();
     expect(screen.getByText('Set OPENAI_API_KEY to enable OpenAI summaries.')).toBeInTheDocument();
   });
@@ -67,7 +65,6 @@ describe('NodePanel', () => {
       requires_generation: false,
       error: null,
       content_hash: 'hash',
-      provider: 'openai',
       model: 'gpt-4.1-mini'
     });
 
@@ -87,7 +84,6 @@ describe('NodePanel', () => {
         requires_generation: true,
         error: 'No cached summary yet. Generate one to analyze this file.',
         content_hash: 'hash',
-        provider: 'openai',
         model: 'gpt-4.1-mini'
       })
       .mockResolvedValueOnce({
@@ -98,7 +94,6 @@ describe('NodePanel', () => {
         requires_generation: false,
         error: null,
         content_hash: 'hash',
-        provider: 'openai',
         model: 'gpt-4.1-mini'
       });
 
@@ -107,7 +102,7 @@ describe('NodePanel', () => {
     const button = await screen.findByRole('button', { name: 'Generate summary' });
     fireEvent.click(button);
 
-    await waitFor(() => expect(summarizeMock).toHaveBeenLastCalledWith('/tmp/repo', 'src/main.py', 'openai', false));
+    await waitFor(() => expect(summarizeMock).toHaveBeenLastCalledWith('/tmp/repo', 'src/main.py', false));
     expect(await screen.findByText('Fresh summary')).toBeInTheDocument();
     expect(screen.getByText('Fresh summary text.')).toBeInTheDocument();
   });

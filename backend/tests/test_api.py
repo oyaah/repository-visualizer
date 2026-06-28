@@ -60,24 +60,13 @@ def test_summarize_returns_disabled_without_api_key(tmp_path: Path, monkeypatch)
     (tmp_path / "main.py").write_text(f"print('{tmp_path.name}')\n", encoding="utf-8")
     response = client.post(
         "/api/summarize",
-        json={"root_path": str(tmp_path), "file_path": "main.py", "provider": "openai"},
+        json={"root_path": str(tmp_path), "file_path": "main.py"},
     )
     assert response.status_code == 200
     data = response.json()
     assert data["disabled"] is True
     assert data["cached"] is False
     assert "OPENAI_API_KEY" in data["error"]
-
-
-def test_summarize_rejects_unknown_provider(tmp_path: Path) -> None:
-    (tmp_path / "main.py").write_text("print('ok')\n", encoding="utf-8")
-
-    response = client.post(
-        "/api/summarize",
-        json={"root_path": str(tmp_path), "file_path": "main.py", "provider": "typo"},
-    )
-
-    assert response.status_code == 422
 
 
 def test_summarize_cache_only_requires_generation_without_provider_call(tmp_path: Path, monkeypatch) -> None:
@@ -94,7 +83,7 @@ def test_summarize_cache_only_requires_generation_without_provider_call(tmp_path
 
     response = client.post(
         "/api/summarize",
-        json={"root_path": str(tmp_path), "file_path": "main.py", "provider": "openai", "cache_only": True},
+        json={"root_path": str(tmp_path), "file_path": "main.py", "cache_only": True},
     )
 
     assert response.status_code == 200
@@ -116,13 +105,13 @@ def test_summarize_cache_only_returns_cached_summary(tmp_path: Path, monkeypatch
 
     fresh = client.post(
         "/api/summarize",
-        json={"root_path": str(tmp_path), "file_path": "main.py", "provider": "openai"},
+        json={"root_path": str(tmp_path), "file_path": "main.py"},
     )
     assert fresh.status_code == 200
 
     cached = client.post(
         "/api/summarize",
-        json={"root_path": str(tmp_path), "file_path": "main.py", "provider": "openai", "cache_only": True},
+        json={"root_path": str(tmp_path), "file_path": "main.py", "cache_only": True},
     )
 
     assert cached.status_code == 200

@@ -8,7 +8,7 @@ Local codebase map for onboarding, refactoring, and spotting bloated files.
 - Static dependency extraction for Python, JavaScript/TypeScript, and C/C++ includes, with support for root `.gitignore`, Python `src/` layouts, and TypeScript path aliases.
 - React Flow canvas with draggable nodes, zoom, pan, search/type filters, full/neighborhood graph modes, persisted browser layouts, and an inspector panel.
 - Repository insights panel for largest files, complexity hotspots, dependency hubs, unresolved references, skipped-file counts, and truncation warnings.
-- AI file explanations with OpenAI or Gemini, cached by file-content hash.
+- AI file explanations with OpenAI, cached by file-content hash.
 
 ## Run the backend
 
@@ -20,11 +20,10 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
 
-Optional AI summary keys:
+Optional AI summary key:
 
 ```bash
 export OPENAI_API_KEY=...
-export GEMINI_API_KEY=...
 ```
 
 Copy `backend/.env.example` if you prefer loading keys from a local env file.

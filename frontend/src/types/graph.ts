@@ -60,6 +60,5 @@ export type SummaryResponse = {
   requires_generation: boolean;
   error: string | null;
   content_hash: string | null;
-  provider: string | null;
   model: string | null;
 };

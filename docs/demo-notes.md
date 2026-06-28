@@ -8,7 +8,7 @@
 6. Switch the graph from `Full` to `Neighborhood` to show the selected file plus direct imports/importers.
 7. Drag a node, refresh, and show that the layout is restored; use `Reset layout` to return to auto layout.
 8. Click "Generate summary" without an API key to show the disabled AI state.
-9. Set `OPENAI_API_KEY` or `GEMINI_API_KEY` and retry to show cached summaries on the second request.
+9. Set `OPENAI_API_KEY` and retry to show cached summaries on the second request.
 10. For a scale demo, clone a large public repo outside this project and analyze it with a lower max-file cap first.
 11. Use the graph search and extension filter to narrow the canvas instead of dragging through every file manually.
 
@@ -23,7 +23,7 @@ Follow-up hardening added root `.gitignore` pruning, skipped-reason counts, Pyth
 - `feat: scaffold repository visualizer mvp`
 - `chore: ignore generated build artifacts`
 - `feat: harden graph analysis coverage`
-- `feat: expose ai provider selection`
+- `feat: add openai summary controls`
 - `feat: add bounded repository analysis`
 - `feat: add large graph controls`
 - `feat: load summary state on node selection`

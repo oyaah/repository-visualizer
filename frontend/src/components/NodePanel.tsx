@@ -11,7 +11,6 @@ type Props = {
 export function NodePanel({ rootPath, node }: Props) {
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [provider, setProvider] = useState('openai');
 
   useEffect(() => {
     if (!node || !rootPath) {
@@ -23,7 +22,7 @@ export function NodePanel({ rootPath, node }: Props) {
     let cancelled = false;
     setLoading(true);
     setSummary(null);
-    summarizeFile(rootPath, node.path, provider, true)
+    summarizeFile(rootPath, node.path, true)
       .then((response) => {
         if (!cancelled) {
           setSummary(response);
@@ -43,14 +42,14 @@ export function NodePanel({ rootPath, node }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [node, provider, rootPath]);
+  }, [node, rootPath]);
 
   async function handleSummarize() {
     if (!node || !rootPath) return;
     setLoading(true);
     setSummary(null);
     try {
-      setSummary(await summarizeFile(rootPath, node.path, provider, false));
+      setSummary(await summarizeFile(rootPath, node.path, false));
     } catch (err) {
       setSummary(errorSummary(node.path, err));
     } finally {
@@ -89,13 +88,6 @@ export function NodePanel({ rootPath, node }: Props) {
       <Section title="External / unresolved" items={[...node.external_imports, ...node.unresolved_imports]} fallback="No unresolved imports." />
 
       <div className="summary-box">
-        <label className="provider-select">
-          AI provider
-          <select value={provider} onChange={(event) => setProvider(event.target.value)} disabled={loading}>
-            <option value="openai">OpenAI</option>
-            <option value="gemini">Gemini</option>
-          </select>
-        </label>
         <button className="summary-button" onClick={handleSummarize} disabled={loading}>
           {loading ? <Loader2 className="spin" size={17} /> : <Brain size={17} />}
           {loading ? 'Checking summary' : summary?.requires_generation ? 'Generate summary' : 'Refresh summary'}
@@ -120,7 +112,6 @@ function errorSummary(filePath: string, err: unknown): SummaryResponse {
     requires_generation: false,
     error: err instanceof Error ? err.message : 'Summary failed',
     content_hash: null,
-    provider: null,
     model: null
   };
 }
