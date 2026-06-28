@@ -27,6 +27,7 @@ export GEMINI_API_KEY=...
 ```
 
 Copy `backend/.env.example` if you prefer loading keys from a local env file.
+Run this backend on your own machine only. It reads local paths by design and is not hardened for public hosting.
 
 ## Run the frontend
 
