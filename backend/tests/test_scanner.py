@@ -33,8 +33,24 @@ def test_scan_policy_excludes_tests_and_vendor_like_files(tmp_path: Path) -> Non
 
     assert [file.relative_path for file in result.files] == ["src/app.py"]
     assert result.skipped_files == 1
+    assert result.skipped_reasons == {"scan_policy": 1}
     assert "tests" in result.ignored_directories
     assert "vendor" in result.ignored_directories
+
+
+def test_scan_applies_root_gitignore_patterns(tmp_path: Path) -> None:
+    (tmp_path / ".gitignore").write_text("fixtures/\n*.snap.ts\n", encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text("print('ok')\n", encoding="utf-8")
+    (tmp_path / "src" / "view.snap.ts").write_text("export const x = 1\n", encoding="utf-8")
+    (tmp_path / "fixtures").mkdir()
+    (tmp_path / "fixtures" / "seed.py").write_text("print('skip')\n", encoding="utf-8")
+
+    result = scan_repository(tmp_path)
+
+    assert [file.relative_path for file in result.files] == ["src/app.py"]
+    assert result.skipped_reasons == {"gitignore": 1}
+    assert "fixtures" in result.ignored_directories
 
 
 def test_scan_policy_caps_analyzed_files(tmp_path: Path) -> None:
@@ -46,6 +62,7 @@ def test_scan_policy_caps_analyzed_files(tmp_path: Path) -> None:
     assert [file.relative_path for file in result.files] == ["module_0.py", "module_1.py"]
     assert result.total_files_found == 3
     assert result.skipped_files == 1
+    assert result.skipped_reasons == {"max_files": 1}
     assert result.truncated is True
     assert result.warnings
 

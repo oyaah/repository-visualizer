@@ -63,6 +63,7 @@ class GraphStats(BaseModel):
     total_files_found: int
     analyzed_files: int
     skipped_files: int
+    skipped_reasons: dict[str, int] = Field(default_factory=dict)
     truncated: bool
     warnings: list[str] = Field(default_factory=list)
 

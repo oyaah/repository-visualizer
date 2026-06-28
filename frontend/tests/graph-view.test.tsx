@@ -24,6 +24,7 @@ const graph: GraphResponse = {
     total_files_found: 2,
     analyzed_files: 2,
     skipped_files: 0,
+    skipped_reasons: {},
     truncated: false,
     warnings: []
   },
@@ -64,6 +65,7 @@ const graphWithOrphan: GraphResponse = {
     total_files_found: 3,
     analyzed_files: 3,
     skipped_files: 0,
+    skipped_reasons: {},
     truncated: false,
     warnings: []
   },
@@ -134,6 +136,7 @@ describe('GraphCanvas', () => {
             total_files_found: 10,
             analyzed_files: 2,
             skipped_files: 8,
+            skipped_reasons: { max_files: 8 },
             truncated: true,
             warnings: ['Analysis limited to 2 files out of 10 eligible files.']
           }

@@ -39,6 +39,7 @@ export type GraphStats = {
   total_files_found: number;
   analyzed_files: number;
   skipped_files: number;
+  skipped_reasons: Record<string, number>;
   truncated: boolean;
   warnings: string[];
 };

@@ -35,6 +35,7 @@ const graph: GraphResponse = {
     total_files_found: 3,
     analyzed_files: 3,
     skipped_files: 2,
+    skipped_reasons: { scan_policy: 2 },
     truncated: false,
     warnings: []
   },

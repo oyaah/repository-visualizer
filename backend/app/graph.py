@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+import json
 from pathlib import Path
 
 from app.models import AnalyzeRequest, EdgeKind, FileMetrics, GraphEdge, GraphNode, GraphResponse, GraphStats
@@ -9,10 +11,18 @@ from app.scanner import ScannedFile, scan_repository
 RESOLUTION_EXTENSIONS = ["", ".py", ".js", ".jsx", ".ts", ".tsx", ".c", ".h", ".cc", ".cpp", ".hpp", "/index.js", "/index.ts", "/__init__.py"]
 
 
+@dataclass(frozen=True)
+class TsPathAlias:
+    pattern: str
+    targets: list[str]
+    base_url: str
+
+
 def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphResponse:
     scan_result = scan_repository(root, options)
     scanned_files = scan_result.files
     by_path = {item.relative_path: item for item in scanned_files}
+    ts_aliases = load_ts_path_aliases(root)
     nodes = {
         item.relative_path: GraphNode(
             id=item.relative_path,
@@ -29,7 +39,7 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
 
     for item in scanned_files:
         for dep in parse_dependencies(item.relative_path, item.text):
-            target = resolve_dependency(item, dep, by_path)
+            target = resolve_dependency(item, dep, by_path, ts_aliases)
             if target:
                 edge_id = f"{item.relative_path}->{target}:{dep.kind.value}"
                 if edge_id in edge_ids:
@@ -70,17 +80,20 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
             total_files_found=scan_result.total_files_found,
             analyzed_files=len(scanned_files),
             skipped_files=scan_result.skipped_files,
+            skipped_reasons=scan_result.skipped_reasons,
             truncated=scan_result.truncated,
             warnings=scan_result.warnings,
         ),
     )
 
 
-def resolve_dependency(source: ScannedFile, dependency: Dependency, files: dict[str, ScannedFile]) -> str | None:
+def resolve_dependency(source: ScannedFile, dependency: Dependency, files: dict[str, ScannedFile], ts_aliases: list[TsPathAlias] | None = None) -> str | None:
     if source.extension == ".py":
         return resolve_python_dependency(source, dependency, files)
     if source.extension in {".js", ".jsx", ".ts", ".tsx"}:
-        return resolve_path_like_dependency(source, dependency.raw, files)
+        if dependency.is_relative:
+            return resolve_path_like_dependency(source, dependency.raw, files)
+        return resolve_ts_alias_dependency(dependency.raw, files, ts_aliases or [])
     if source.extension in {".c", ".h", ".cc", ".cpp", ".hpp"} and dependency.is_relative:
         return resolve_path_like_dependency(source, dependency.raw, files)
     return None
@@ -97,7 +110,7 @@ def resolve_python_dependency(source: ScannedFile, dependency: Dependency, files
         return first_existing_candidate(candidate.as_posix(), files, python=True)
 
     package_path = dependency.raw.replace(".", "/")
-    return first_existing_candidate(package_path, files, python=True)
+    return first_existing_candidate(package_path, files, python=True) or first_existing_candidate(f"src/{package_path}", files, python=True)
 
 
 def resolve_path_like_dependency(source: ScannedFile, raw: str, files: dict[str, ScannedFile]) -> str | None:
@@ -116,3 +129,50 @@ def first_existing_candidate(candidate: str, files: dict[str, ScannedFile], pyth
         if path in files:
             return path
     return None
+
+
+def load_ts_path_aliases(root: Path) -> list[TsPathAlias]:
+    tsconfig = root / "tsconfig.json"
+    try:
+        config = json.loads(tsconfig.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    compiler_options = config.get("compilerOptions", {})
+    if not isinstance(compiler_options, dict):
+        return []
+    base_url = compiler_options.get("baseUrl", ".")
+    paths = compiler_options.get("paths", {})
+    if not isinstance(paths, dict):
+        return []
+
+    aliases: list[TsPathAlias] = []
+    for pattern, targets in paths.items():
+        if isinstance(pattern, str) and isinstance(targets, list):
+            normalized_targets = [target for target in targets if isinstance(target, str)]
+            if normalized_targets:
+                aliases.append(TsPathAlias(pattern=pattern, targets=normalized_targets, base_url=str(base_url)))
+    return aliases
+
+
+def resolve_ts_alias_dependency(raw: str, files: dict[str, ScannedFile], aliases: list[TsPathAlias]) -> str | None:
+    for alias in aliases:
+        wildcard = alias_wildcard(raw, alias.pattern)
+        if wildcard is None:
+            continue
+        for target_pattern in alias.targets:
+            target = target_pattern.replace("*", wildcard)
+            candidate = (Path(alias.base_url) / target).as_posix()
+            resolved = first_existing_candidate(candidate, files)
+            if resolved:
+                return resolved
+    return None
+
+
+def alias_wildcard(raw: str, pattern: str) -> str | None:
+    if "*" not in pattern:
+        return "" if raw == pattern else None
+    prefix, suffix = pattern.split("*", 1)
+    if not raw.startswith(prefix) or not raw.endswith(suffix):
+        return None
+    return raw[len(prefix) : len(raw) - len(suffix) if suffix else len(raw)]
