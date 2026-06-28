@@ -26,6 +26,8 @@ export OPENAI_API_KEY=...
 export GEMINI_API_KEY=...
 ```
 
+Copy `backend/.env.example` if you prefer loading keys from a local env file.
+
 ## Run the frontend
 
 ```bash
@@ -34,7 +36,15 @@ npm install
 npm run dev
 ```
 
+Set `VITE_API_BASE` only if the backend is not running on `http://127.0.0.1:8000`.
+
 Open `http://127.0.0.1:5173`, enter a local repository path, and analyze.
+
+For a quick demo, scan:
+
+```text
+backend/tests/fixtures/sample_repo
+```
 
 ## Test
 
@@ -49,4 +59,3 @@ cd frontend && npm test
 - External dependencies are tracked as metadata, not rendered as graph nodes.
 - Saved canvas layouts are in-memory only.
 - Full cyclomatic complexity and dependency-rule validation are follow-up work.
-
