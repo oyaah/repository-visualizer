@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { GraphCanvas } from '../src/graph/GraphCanvas';
 import type { GraphResponse } from '../src/types/graph';
@@ -76,6 +76,15 @@ describe('GraphCanvas', () => {
     expect(screen.getByText('1 of 2 files')).toBeInTheDocument();
     expect(screen.queryByText('main.py')).not.toBeInTheDocument();
     expect(screen.getByText('utils.py')).toBeInTheDocument();
+  });
+
+  it('moves selection when the active node is filtered out', async () => {
+    const onSelectNode = vi.fn();
+    render(<GraphCanvas graph={graph} selectedNodeId="src/main.py" onSelectNode={onSelectNode} />);
+
+    fireEvent.change(screen.getByLabelText('Filter graph by path'), { target: { value: 'utils' } });
+
+    await waitFor(() => expect(onSelectNode).toHaveBeenCalledWith(graph.nodes[1]));
   });
 
   it('shows backend warnings for limited scans', () => {

@@ -16,7 +16,7 @@ import { toFlowEdges, toFlowNodes } from './layout';
 type Props = {
   graph: GraphResponse | null;
   selectedNodeId: string | null;
-  onSelectNode: (node: GraphNode) => void;
+  onSelectNode: (node: GraphNode | null) => void;
 };
 
 export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
@@ -48,6 +48,18 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
 
   useEffect(() => setNodes(flowNodes), [flowNodes, setNodes]);
   useEffect(() => setEdges(flowEdges), [flowEdges, setEdges]);
+  useEffect(() => {
+    if (!graph) {
+      return;
+    }
+    if (!selectedNodeId) {
+      return;
+    }
+    if (visibleGraph.nodes.some((node) => node.id === selectedNodeId)) {
+      return;
+    }
+    onSelectNode(visibleGraph.nodes[0] ?? null);
+  }, [graph, onSelectNode, selectedNodeId, visibleGraph.nodes]);
 
   if (!graph) {
     return (
