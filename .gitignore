@@ -9,8 +9,9 @@ __pycache__/
 *.pyc
 *.db
 *.sqlite
+*.egg-info/
+*.tsbuildinfo
 node_modules/
 dist/
 coverage/
 .vite/
-
