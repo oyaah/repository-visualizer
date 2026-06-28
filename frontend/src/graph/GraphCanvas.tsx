@@ -13,6 +13,8 @@ import {
 import type { GraphNode, GraphResponse } from '../types/graph';
 import { toFlowEdges, toFlowNodes } from './layout';
 
+type GraphMode = 'all' | 'neighborhood';
+
 type Props = {
   graph: GraphResponse | null;
   selectedNodeId: string | null;
@@ -22,13 +24,15 @@ type Props = {
 export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
   const [query, setQuery] = useState('');
   const [extension, setExtension] = useState('all');
+  const [graphMode, setGraphMode] = useState<GraphMode>('all');
   const extensions = useMemo(() => {
     const values = new Set((graph?.nodes ?? []).map((node) => node.extension || 'file'));
     return Array.from(values).sort();
   }, [graph]);
   const visibleGraph = useMemo(() => {
+    const candidateNodes = nodesForMode(graph, graphMode, selectedNodeId);
     const normalizedQuery = query.trim().toLowerCase();
-    const nodes = (graph?.nodes ?? []).filter((node) => {
+    const nodes = candidateNodes.filter((node) => {
       const matchesQuery =
         !normalizedQuery ||
         node.path.toLowerCase().includes(normalizedQuery) ||
@@ -40,7 +44,7 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
     const visibleIds = new Set(nodes.map((node) => node.id));
     const edges = (graph?.edges ?? []).filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
     return { nodes, edges };
-  }, [extension, graph, query]);
+  }, [extension, graph, graphMode, query, selectedNodeId]);
   const flowNodes = useMemo(() => toFlowNodes(visibleGraph.nodes, visibleGraph.edges), [visibleGraph]);
   const flowEdges = useMemo(() => toFlowEdges(visibleGraph.edges), [visibleGraph]);
   const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
@@ -78,6 +82,14 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
         <span>{graph.stats.analyzed_files} analyzed / {graph.stats.total_files_found} found</span>
         {graph.stats.skipped_files ? <span>{graph.stats.skipped_files} skipped</span> : null}
         {graph.ignored_directories.length ? <span>Ignored: {graph.ignored_directories.join(', ')}</span> : null}
+        <div className="graph-mode" aria-label="Graph display mode">
+          <button type="button" className={graphMode === 'all' ? 'active' : ''} onClick={() => setGraphMode('all')}>
+            Full
+          </button>
+          <button type="button" className={graphMode === 'neighborhood' ? 'active' : ''} onClick={() => setGraphMode('neighborhood')}>
+            Neighborhood
+          </button>
+        </div>
         <label className="graph-filter">
           Search
           <input
@@ -141,3 +153,29 @@ const RepoNode = memo(function RepoNode({ data, selected }: NodeProps) {
 });
 
 const nodeTypes = { repoNode: RepoNode };
+
+function nodesForMode(graph: GraphResponse | null, graphMode: GraphMode, selectedNodeId: string | null): GraphNode[] {
+  if (!graph) {
+    return [];
+  }
+  if (graphMode === 'all' || !selectedNodeId) {
+    return graph.nodes;
+  }
+
+  const selectedNode = graph.nodes.find((node) => node.id === selectedNodeId);
+  if (!selectedNode) {
+    return graph.nodes;
+  }
+
+  const ids = new Set<string>([selectedNode.id, ...selectedNode.imports, ...selectedNode.imported_by]);
+  graph.edges.forEach((edge) => {
+    if (edge.source === selectedNode.id) {
+      ids.add(edge.target);
+    }
+    if (edge.target === selectedNode.id) {
+      ids.add(edge.source);
+    }
+  });
+
+  return graph.nodes.filter((node) => ids.has(node.id));
+}

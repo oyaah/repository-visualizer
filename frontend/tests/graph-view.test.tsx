@@ -58,6 +58,33 @@ const graph: GraphResponse = {
   edges: [{ id: 'e1', source: 'src/main.py', target: 'src/utils.py', kind: 'import', label: 'import' }]
 };
 
+const graphWithOrphan: GraphResponse = {
+  ...graph,
+  stats: {
+    total_files_found: 3,
+    analyzed_files: 3,
+    skipped_files: 0,
+    truncated: false,
+    warnings: []
+  },
+  nodes: [
+    ...graph.nodes,
+    {
+      id: 'docs/readme.md',
+      path: 'docs/readme.md',
+      label: 'readme.md',
+      folder: 'docs',
+      extension: '.md',
+      kind: 'file',
+      metrics: { loc: 8, total_lines: 8, size_bytes: 80, complexity: 0, dependency_count: 0, dependent_count: 0 },
+      imports: [],
+      imported_by: [],
+      unresolved_imports: [],
+      external_imports: []
+    }
+  ]
+};
+
 describe('GraphCanvas', () => {
   it('renders graph nodes and counts', () => {
     render(<GraphCanvas graph={graph} selectedNodeId={null} onSelectNode={() => undefined} />);
@@ -76,6 +103,17 @@ describe('GraphCanvas', () => {
     expect(screen.getByText('1 of 2 files')).toBeInTheDocument();
     expect(screen.queryByText('main.py')).not.toBeInTheDocument();
     expect(screen.getByText('utils.py')).toBeInTheDocument();
+  });
+
+  it('shows only one-hop related files in neighborhood mode', () => {
+    render(<GraphCanvas graph={graphWithOrphan} selectedNodeId="src/main.py" onSelectNode={() => undefined} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Neighborhood' }));
+
+    expect(screen.getByText('2 of 3 files')).toBeInTheDocument();
+    expect(screen.getByText('main.py')).toBeInTheDocument();
+    expect(screen.getByText('utils.py')).toBeInTheDocument();
+    expect(screen.queryByText('readme.md')).not.toBeInTheDocument();
   });
 
   it('moves selection when the active node is filtered out', async () => {

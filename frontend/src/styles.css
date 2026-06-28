@@ -195,6 +195,33 @@ h1 {
   font-weight: 700;
 }
 
+.graph-mode {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.graph-mode button {
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  padding: 7px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.graph-mode button:last-child {
+  border-right: 0;
+}
+
+.graph-mode button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
 .graph-filter input,
 .graph-filter select {
   width: 150px;
