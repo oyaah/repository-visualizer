@@ -1,11 +1,15 @@
 ---
 title: "feat: Complete Repository Visualizer Product"
 type: feat
-status: active
+status: completed
 date: 2026-06-29
 ---
 
 # feat: Complete Repository Visualizer Product
+
+## Completion Notes
+
+Completed on 2026-06-29 across six focused commits. The app now has selection-driven cached summary state, repository insights, full/neighborhood graph modes, persisted graph layouts, hardened scan/dependency handling, CI, Docker packaging, and updated demo documentation.
 
 ## Summary
 
