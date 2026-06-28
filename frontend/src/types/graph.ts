@@ -56,6 +56,7 @@ export type SummaryResponse = {
   summary: string | null;
   cached: boolean;
   disabled: boolean;
+  requires_generation: boolean;
   error: string | null;
   content_hash: string | null;
   provider: string | null;

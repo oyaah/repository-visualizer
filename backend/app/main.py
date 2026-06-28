@@ -43,6 +43,6 @@ async def summarize(request: SummaryRequest) -> SummaryResponse:
     if not root.exists() or not root.is_dir():
         raise HTTPException(status_code=400, detail="root_path must be an existing directory")
     try:
-        return await summary_service.summarize(root, request.file_path, request.provider, request.model)
+        return await summary_service.summarize(root, request.file_path, request.provider, request.model, request.cache_only)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

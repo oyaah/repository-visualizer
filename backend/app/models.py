@@ -80,6 +80,7 @@ class SummaryRequest(BaseModel):
     file_path: str = Field(..., min_length=1)
     provider: str = "openai"
     model: str | None = None
+    cache_only: bool = False
 
     @field_validator("root_path")
     @classmethod
@@ -92,6 +93,7 @@ class SummaryResponse(BaseModel):
     summary: str | None
     cached: bool
     disabled: bool = False
+    requires_generation: bool = False
     error: str | None = None
     content_hash: str | None = None
     provider: str | None = None

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Brain, FileCode2, Loader2 } from 'lucide-react';
 import { summarizeFile } from '../api/client';
 import type { GraphNode, SummaryResponse } from '../types/graph';
@@ -13,23 +13,46 @@ export function NodePanel({ rootPath, node }: Props) {
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState('openai');
 
+  useEffect(() => {
+    if (!node || !rootPath) {
+      setSummary(null);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setLoading(true);
+    setSummary(null);
+    summarizeFile(rootPath, node.path, provider, true)
+      .then((response) => {
+        if (!cancelled) {
+          setSummary(response);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setSummary(errorSummary(node.path, err));
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [node, provider, rootPath]);
+
   async function handleSummarize() {
     if (!node || !rootPath) return;
     setLoading(true);
     setSummary(null);
     try {
-      setSummary(await summarizeFile(rootPath, node.path, provider));
+      setSummary(await summarizeFile(rootPath, node.path, provider, false));
     } catch (err) {
-      setSummary({
-        file_path: node.path,
-        summary: null,
-        cached: false,
-        disabled: false,
-        error: err instanceof Error ? err.message : 'Summary failed',
-        content_hash: null,
-        provider: null,
-        model: null
-      });
+      setSummary(errorSummary(node.path, err));
     } finally {
       setLoading(false);
     }
@@ -75,17 +98,31 @@ export function NodePanel({ rootPath, node }: Props) {
         </label>
         <button className="summary-button" onClick={handleSummarize} disabled={loading}>
           {loading ? <Loader2 className="spin" size={17} /> : <Brain size={17} />}
-          {loading ? 'Summarizing' : 'Explain file'}
+          {loading ? 'Checking summary' : summary?.requires_generation ? 'Generate summary' : 'Refresh summary'}
         </button>
         {summary ? (
           <div className="summary-result">
-            <span>{summary.cached ? 'Cached summary' : summary.disabled ? 'AI disabled' : 'Fresh summary'}</span>
+            <span>{summary.cached ? 'Cached summary' : summary.disabled ? 'AI disabled' : summary.requires_generation ? 'Ready to generate' : 'Fresh summary'}</span>
             <p>{summary.summary ?? summary.error}</p>
           </div>
         ) : null}
       </div>
     </aside>
   );
+}
+
+function errorSummary(filePath: string, err: unknown): SummaryResponse {
+  return {
+    file_path: filePath,
+    summary: null,
+    cached: false,
+    disabled: false,
+    requires_generation: false,
+    error: err instanceof Error ? err.message : 'Summary failed',
+    content_hash: null,
+    provider: null,
+    model: null
+  };
 }
 
 function Metric({ label, value }: { label: string; value: number }) {

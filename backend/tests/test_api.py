@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+import app.ai as ai
 from app.main import app
 
 
@@ -56,7 +57,7 @@ def test_analyze_rejects_invalid_scan_options(tmp_path: Path) -> None:
 
 def test_summarize_returns_disabled_without_api_key(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-    (tmp_path / "main.py").write_text("print('hello')\n", encoding="utf-8")
+    (tmp_path / "main.py").write_text(f"print('{tmp_path.name}')\n", encoding="utf-8")
     response = client.post(
         "/api/summarize",
         json={"root_path": str(tmp_path), "file_path": "main.py", "provider": "openai"},
@@ -66,3 +67,54 @@ def test_summarize_returns_disabled_without_api_key(tmp_path: Path, monkeypatch)
     assert data["disabled"] is True
     assert data["cached"] is False
     assert "OPENAI_API_KEY" in data["error"]
+
+
+def test_summarize_cache_only_requires_generation_without_provider_call(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    called = False
+
+    async def fake_provider(model: str, prompt: str) -> str:
+        nonlocal called
+        called = True
+        return "Should not be called"
+
+    monkeypatch.setattr(ai, "call_openai", fake_provider)
+    (tmp_path / "main.py").write_text(f"print('{tmp_path.name}')\n", encoding="utf-8")
+
+    response = client.post(
+        "/api/summarize",
+        json={"root_path": str(tmp_path), "file_path": "main.py", "provider": "openai", "cache_only": True},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["cached"] is False
+    assert data["requires_generation"] is True
+    assert data["disabled"] is False
+    assert called is False
+
+
+def test_summarize_cache_only_returns_cached_summary(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+
+    async def fake_provider(model: str, prompt: str) -> str:
+        return "Cached later"
+
+    monkeypatch.setattr(ai, "call_openai", fake_provider)
+    (tmp_path / "main.py").write_text("print('hello')\n", encoding="utf-8")
+
+    fresh = client.post(
+        "/api/summarize",
+        json={"root_path": str(tmp_path), "file_path": "main.py", "provider": "openai"},
+    )
+    assert fresh.status_code == 200
+
+    cached = client.post(
+        "/api/summarize",
+        json={"root_path": str(tmp_path), "file_path": "main.py", "provider": "openai", "cache_only": True},
+    )
+
+    assert cached.status_code == 200
+    data = cached.json()
+    assert data["cached"] is True
+    assert data["summary"] == "Cached later"

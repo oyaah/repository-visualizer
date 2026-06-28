@@ -17,7 +17,7 @@ class SummaryService:
     def __init__(self, cache: SummaryCache) -> None:
         self.cache = cache
 
-    async def summarize(self, root: Path, file_path: str, provider: str, model: str | None = None) -> SummaryResponse:
+    async def summarize(self, root: Path, file_path: str, provider: str, model: str | None = None, cache_only: bool = False) -> SummaryResponse:
         target = safe_join(root, file_path)
         if not target.exists() or not target.is_file():
             raise ValueError("file_path must point to a file inside root_path")
@@ -38,10 +38,33 @@ class SummaryService:
                 model=model_name,
             )
 
+        disabled_reason = disabled_ai_reason(provider_name)
+        if cache_only:
+            if disabled_reason:
+                return SummaryResponse(
+                    file_path=file_path,
+                    summary=None,
+                    cached=False,
+                    disabled=True,
+                    error=disabled_reason,
+                    content_hash=content_hash,
+                    provider=provider_name,
+                    model=model_name,
+                )
+            return SummaryResponse(
+                file_path=file_path,
+                summary=None,
+                cached=False,
+                requires_generation=True,
+                error="No cached summary yet. Generate one to analyze this file.",
+                content_hash=content_hash,
+                provider=provider_name,
+                model=model_name,
+            )
+
         if len(text) > MAX_SUMMARY_CHARS:
             text = text[:MAX_SUMMARY_CHARS] + "\n\n[truncated for summary]"
 
-        disabled_reason = disabled_ai_reason(provider_name)
         if disabled_reason:
             return SummaryResponse(
                 file_path=file_path,
@@ -144,4 +167,3 @@ async def call_gemini(model: str, prompt: str) -> str:
         return "No summary returned."
     parts = candidates[0].get("content", {}).get("parts", [])
     return "\n".join(part.get("text", "") for part in parts).strip() or "No summary returned."
-
