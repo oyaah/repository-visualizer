@@ -34,7 +34,7 @@ def analyze(request: AnalyzeRequest) -> GraphResponse:
     root = Path(request.root_path)
     if not root.exists() or not root.is_dir():
         raise HTTPException(status_code=400, detail="root_path must be an existing directory")
-    return build_graph(root)
+    return build_graph(root, request)
 
 
 @app.post("/api/summarize", response_model=SummaryResponse)
@@ -46,4 +46,3 @@ async def summarize(request: SummaryRequest) -> SummaryResponse:
         return await summary_service.summarize(root, request.file_path, request.provider, request.model)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-

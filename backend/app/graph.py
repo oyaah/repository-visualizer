@@ -2,15 +2,16 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.models import EdgeKind, FileMetrics, GraphEdge, GraphNode, GraphResponse
+from app.models import AnalyzeRequest, EdgeKind, FileMetrics, GraphEdge, GraphNode, GraphResponse, GraphStats
 from app.parsers import Dependency, parse_dependencies
 from app.scanner import ScannedFile, scan_repository
 
 RESOLUTION_EXTENSIONS = ["", ".py", ".js", ".jsx", ".ts", ".tsx", ".c", ".h", ".cc", ".cpp", ".hpp", "/index.js", "/index.ts", "/__init__.py"]
 
 
-def build_graph(root: Path) -> GraphResponse:
-    scanned_files, ignored = scan_repository(root)
+def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphResponse:
+    scan_result = scan_repository(root, options)
+    scanned_files = scan_result.files
     by_path = {item.relative_path: item for item in scanned_files}
     nodes = {
         item.relative_path: GraphNode(
@@ -24,13 +25,18 @@ def build_graph(root: Path) -> GraphResponse:
         for item in scanned_files
     }
     edges: list[GraphEdge] = []
+    edge_ids: set[str] = set()
 
     for item in scanned_files:
         for dep in parse_dependencies(item.relative_path, item.text):
             target = resolve_dependency(item, dep, by_path)
             if target:
+                edge_id = f"{item.relative_path}->{target}:{dep.kind.value}"
+                if edge_id in edge_ids:
+                    continue
+                edge_ids.add(edge_id)
                 edge = GraphEdge(
-                    id=f"{item.relative_path}->{target}:{dep.kind.value}",
+                    id=edge_id,
                     source=item.relative_path,
                     target=target,
                     kind=dep.kind,
@@ -59,7 +65,14 @@ def build_graph(root: Path) -> GraphResponse:
         root_path=str(root.resolve()),
         nodes=sorted(nodes.values(), key=lambda node: node.path),
         edges=sorted(edges, key=lambda edge: edge.id),
-        ignored_directories=ignored,
+        ignored_directories=scan_result.ignored_directories,
+        stats=GraphStats(
+            total_files_found=scan_result.total_files_found,
+            analyzed_files=len(scanned_files),
+            skipped_files=scan_result.skipped_files,
+            truncated=scan_result.truncated,
+            warnings=scan_result.warnings,
+        ),
     )
 
 
@@ -103,4 +116,3 @@ def first_existing_candidate(candidate: str, files: dict[str, ScannedFile], pyth
         if path in files:
             return path
     return None
-

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from app.graph import build_graph
+from app.models import AnalyzeRequest
 
 
 def test_graph_resolves_javascript_and_c_dependencies(tmp_path: Path) -> None:
@@ -33,3 +34,27 @@ def test_graph_handles_cycles_without_recursing(tmp_path: Path) -> None:
     assert ("b.py", "a.py") in edges
     assert len(graph.edges) == 2
 
+
+def test_graph_deduplicates_repeated_import_edges(tmp_path: Path) -> None:
+    (tmp_path / "a.py").write_text("import b\nimport b\n", encoding="utf-8")
+    (tmp_path / "b.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    assert [(edge.source, edge.target) for edge in graph.edges] == [("a.py", "b.py")]
+    node = next(node for node in graph.nodes if node.path == "a.py")
+    assert node.metrics.dependency_count == 1
+
+
+def test_graph_includes_scan_metadata(tmp_path: Path) -> None:
+    for index in range(3):
+        (tmp_path / f"module_{index}.py").write_text("print('ok')\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path, AnalyzeRequest(root_path=str(tmp_path), max_files=2))
+
+    assert len(graph.nodes) == 2
+    assert graph.stats.total_files_found == 3
+    assert graph.stats.analyzed_files == 2
+    assert graph.stats.skipped_files == 1
+    assert graph.stats.truncated is True
+    assert graph.stats.warnings

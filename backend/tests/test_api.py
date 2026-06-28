@@ -30,6 +30,28 @@ def test_analyze_returns_graph_for_fixture(tmp_path: Path) -> None:
     assert len(data["nodes"]) == 2
     assert data["edges"][0]["source"] == "main.py"
     assert data["edges"][0]["target"] == "utils.py"
+    assert data["stats"]["analyzed_files"] == 2
+    assert data["stats"]["truncated"] is False
+
+
+def test_analyze_applies_scan_options(tmp_path: Path) -> None:
+    for index in range(3):
+        (tmp_path / f"module_{index}.py").write_text("print('ok')\n", encoding="utf-8")
+
+    response = client.post("/api/analyze", json={"root_path": str(tmp_path), "max_files": 1})
+
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["nodes"]) == 1
+    assert data["stats"]["total_files_found"] == 3
+    assert data["stats"]["skipped_files"] == 2
+    assert data["stats"]["truncated"] is True
+
+
+def test_analyze_rejects_invalid_scan_options(tmp_path: Path) -> None:
+    response = client.post("/api/analyze", json={"root_path": str(tmp_path), "max_files": 0})
+
+    assert response.status_code == 422
 
 
 def test_summarize_returns_disabled_without_api_key(tmp_path: Path, monkeypatch) -> None:

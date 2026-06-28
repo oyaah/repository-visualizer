@@ -18,6 +18,9 @@ class EdgeKind(str, Enum):
 
 class AnalyzeRequest(BaseModel):
     root_path: str = Field(..., min_length=1)
+    max_files: int = Field(default=1000, ge=1, le=10000)
+    include_tests: bool = True
+    include_vendor: bool = False
 
     @field_validator("root_path")
     @classmethod
@@ -56,11 +59,20 @@ class GraphEdge(BaseModel):
     label: str
 
 
+class GraphStats(BaseModel):
+    total_files_found: int
+    analyzed_files: int
+    skipped_files: int
+    truncated: bool
+    warnings: list[str] = Field(default_factory=list)
+
+
 class GraphResponse(BaseModel):
     root_path: str
     nodes: list[GraphNode]
     edges: list[GraphEdge]
     ignored_directories: list[str]
+    stats: GraphStats
 
 
 class SummaryRequest(BaseModel):
@@ -84,4 +96,3 @@ class SummaryResponse(BaseModel):
     content_hash: str | None = None
     provider: str | None = None
     model: str | None = None
-
