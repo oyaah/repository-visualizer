@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 
 from app.models import FileMetrics
@@ -69,32 +70,31 @@ def scan_repository(root: Path) -> tuple[list[ScannedFile], list[str]]:
     ignored_seen: set[str] = set()
     files: list[ScannedFile] = []
 
-    for path in sorted(root.rglob("*")):
-        if any(part in IGNORED_DIRECTORIES for part in path.relative_to(root).parts[:-1]):
-            ignored_seen.update(part for part in path.relative_to(root).parts if part in IGNORED_DIRECTORIES)
-            continue
-        if path.is_dir():
-            if path.name in IGNORED_DIRECTORIES:
-                ignored_seen.add(path.name)
-            continue
-        if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
-            continue
-        try:
-            text = path.read_text(encoding="utf-8")
-        except UnicodeDecodeError:
-            continue
-        relative = path.relative_to(root).as_posix()
-        folder = path.relative_to(root).parent.as_posix()
-        files.append(
-            ScannedFile(
-                path=path,
-                relative_path=relative,
-                folder="" if folder == "." else folder,
-                extension=path.suffix.lower(),
-                text=text,
-                metrics=calculate_metrics(text, path.stat().st_size),
+    for current_root, directory_names, file_names in os.walk(root):
+        ignored_here = sorted(set(directory_names) & IGNORED_DIRECTORIES)
+        ignored_seen.update(ignored_here)
+        directory_names[:] = sorted(name for name in directory_names if name not in IGNORED_DIRECTORIES)
+
+        for file_name in sorted(file_names):
+            path = Path(current_root) / file_name
+            if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
+                continue
+            try:
+                text = path.read_text(encoding="utf-8")
+            except UnicodeDecodeError:
+                continue
+            relative = path.relative_to(root).as_posix()
+            folder = path.relative_to(root).parent.as_posix()
+            files.append(
+                ScannedFile(
+                    path=path,
+                    relative_path=relative,
+                    folder="" if folder == "." else folder,
+                    extension=path.suffix.lower(),
+                    text=text,
+                    metrics=calculate_metrics(text, path.stat().st_size),
+                )
             )
-        )
 
     return files, sorted(ignored_seen)
 
@@ -114,4 +114,3 @@ def calculate_metrics(text: str, size_bytes: int) -> FileMetrics:
         size_bytes=size_bytes,
         complexity=complexity,
     )
-
