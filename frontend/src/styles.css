@@ -28,6 +28,10 @@ input {
   font: inherit;
 }
 
+select {
+  font: inherit;
+}
+
 button {
   cursor: pointer;
 }
@@ -312,6 +316,24 @@ h1 {
   padding-top: 16px;
 }
 
+.provider-select {
+  display: grid;
+  gap: 7px;
+  margin-bottom: 10px;
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.provider-select select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: #17201b;
+  padding: 10px;
+}
+
 .summary-button {
   width: 100%;
 }
@@ -368,4 +390,3 @@ h1 {
     flex-direction: column;
   }
 }
-

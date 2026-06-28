@@ -11,13 +11,14 @@ type Props = {
 export function NodePanel({ rootPath, node }: Props) {
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [provider, setProvider] = useState('openai');
 
   async function handleSummarize() {
     if (!node || !rootPath) return;
     setLoading(true);
     setSummary(null);
     try {
-      setSummary(await summarizeFile(rootPath, node.path));
+      setSummary(await summarizeFile(rootPath, node.path, provider));
     } catch (err) {
       setSummary({
         file_path: node.path,
@@ -65,6 +66,13 @@ export function NodePanel({ rootPath, node }: Props) {
       <Section title="External / unresolved" items={[...node.external_imports, ...node.unresolved_imports]} fallback="No unresolved imports." />
 
       <div className="summary-box">
+        <label className="provider-select">
+          AI provider
+          <select value={provider} onChange={(event) => setProvider(event.target.value)} disabled={loading}>
+            <option value="openai">OpenAI</option>
+            <option value="gemini">Gemini</option>
+          </select>
+        </label>
         <button className="summary-button" onClick={handleSummarize} disabled={loading}>
           {loading ? <Loader2 className="spin" size={17} /> : <Brain size={17} />}
           {loading ? 'Summarizing' : 'Explain file'}
@@ -105,4 +113,3 @@ function Section({ title, items, fallback }: { title: string; items: string[]; f
     </section>
   );
 }
-

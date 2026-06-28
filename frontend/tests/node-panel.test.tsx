@@ -25,6 +25,7 @@ describe('NodePanel', () => {
     expect(screen.getByText('src/utils.py')).toBeInTheDocument();
     expect(screen.getByText('tests/test_main.py')).toBeInTheDocument();
     expect(screen.getByText('os')).toBeInTheDocument();
+    expect(screen.getByLabelText('AI provider')).toBeInTheDocument();
   });
 
   it('shows empty state without a node', () => {
@@ -32,4 +33,3 @@ describe('NodePanel', () => {
     expect(screen.getByText('Select a file node to inspect metrics and summarize code.')).toBeInTheDocument();
   });
 });
-
