@@ -20,7 +20,7 @@ type Props = {
 };
 
 export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
-  const flowNodes = useMemo(() => toFlowNodes(graph?.nodes ?? []), [graph]);
+  const flowNodes = useMemo(() => toFlowNodes(graph?.nodes ?? [], graph?.edges ?? []), [graph]);
   const flowEdges = useMemo(() => toFlowEdges(graph?.edges ?? []), [graph]);
   const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(flowEdges);

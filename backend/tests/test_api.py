@@ -31,3 +31,16 @@ def test_analyze_returns_graph_for_fixture(tmp_path: Path) -> None:
     assert data["edges"][0]["source"] == "main.py"
     assert data["edges"][0]["target"] == "utils.py"
 
+
+def test_summarize_returns_disabled_without_api_key(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    (tmp_path / "main.py").write_text("print('hello')\n", encoding="utf-8")
+    response = client.post(
+        "/api/summarize",
+        json={"root_path": str(tmp_path), "file_path": "main.py", "provider": "openai"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["disabled"] is True
+    assert data["cached"] is False
+    assert "OPENAI_API_KEY" in data["error"]
