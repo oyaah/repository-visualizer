@@ -8,9 +8,11 @@ import {
   ReactFlow,
   useEdgesState,
   useNodesState,
+  type Node as FlowNode,
   type NodeProps
 } from '@xyflow/react';
 import type { GraphNode, GraphResponse } from '../types/graph';
+import { applySavedLayout, clearSavedLayout, saveNodeLayout } from '../utils/layoutStorage';
 import { toFlowEdges, toFlowNodes } from './layout';
 
 type GraphMode = 'all' | 'neighborhood';
@@ -25,6 +27,7 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
   const [query, setQuery] = useState('');
   const [extension, setExtension] = useState('all');
   const [graphMode, setGraphMode] = useState<GraphMode>('all');
+  const [layoutVersion, setLayoutVersion] = useState(0);
   const extensions = useMemo(() => {
     const values = new Set((graph?.nodes ?? []).map((node) => node.extension || 'file'));
     return Array.from(values).sort();
@@ -45,7 +48,10 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
     const edges = (graph?.edges ?? []).filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
     return { nodes, edges };
   }, [extension, graph, graphMode, query, selectedNodeId]);
-  const flowNodes = useMemo(() => toFlowNodes(visibleGraph.nodes, visibleGraph.edges), [visibleGraph]);
+  const flowNodes = useMemo(
+    () => applySavedLayout(toFlowNodes(visibleGraph.nodes, visibleGraph.edges), graph?.root_path ?? '', graph?.nodes ?? []),
+    [graph?.nodes, graph?.root_path, layoutVersion, visibleGraph]
+  );
   const flowEdges = useMemo(() => toFlowEdges(visibleGraph.edges), [visibleGraph]);
   const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(flowEdges);
@@ -90,6 +96,16 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
             Neighborhood
           </button>
         </div>
+        <button
+          type="button"
+          className="graph-reset"
+          onClick={() => {
+            clearSavedLayout(graph.root_path, graph.nodes);
+            setLayoutVersion((version) => version + 1);
+          }}
+        >
+          Reset layout
+        </button>
         <label className="graph-filter">
           Search
           <input
@@ -121,6 +137,7 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeDragStop={(_, node: FlowNode) => saveNodeLayout(graph.root_path, graph.nodes, node.id, node.position)}
         onNodeClick={(_, node) => onSelectNode(node.data as GraphNode)}
         fitView
       >

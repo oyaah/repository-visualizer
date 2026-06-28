@@ -222,6 +222,21 @@ h1 {
   color: #fff;
 }
 
+.graph-reset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink-soft);
+  padding: 7px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.graph-reset:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .graph-filter input,
 .graph-filter select {
   width: 150px;
