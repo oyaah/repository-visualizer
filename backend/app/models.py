@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Literal
 from pathlib import Path
 
 from pydantic import BaseModel, Field, field_validator
@@ -79,7 +80,7 @@ class GraphResponse(BaseModel):
 class SummaryRequest(BaseModel):
     root_path: str = Field(..., min_length=1)
     file_path: str = Field(..., min_length=1)
-    provider: str = "openai"
+    provider: Literal["openai", "gemini"] = "openai"
     model: str | None = None
     cache_only: bool = False
 

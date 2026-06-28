@@ -1,4 +1,5 @@
 import { AlertTriangle, BarChart3, GitMerge, ListTree } from 'lucide-react';
+import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { GraphNode, GraphResponse } from '../types/graph';
 
@@ -8,6 +9,8 @@ type Props = {
 };
 
 export function RepositoryInsights({ graph, onSelectNode }: Props) {
+  const insights = useMemo(() => (graph ? buildInsights(graph.nodes) : null), [graph]);
+
   if (!graph) {
     return (
       <aside className="insights-panel empty" aria-label="Repository insights">
@@ -16,14 +19,6 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
       </aside>
     );
   }
-
-  const largest = topBy(graph.nodes, (node) => node.metrics.loc);
-  const complex = topBy(graph.nodes, (node) => node.metrics.complexity);
-  const hubs = topBy(graph.nodes, (node) => node.metrics.dependent_count);
-  const unresolved = graph.nodes
-    .filter((node) => node.unresolved_imports.length || node.external_imports.length)
-    .sort((a, b) => b.unresolved_imports.length + b.external_imports.length - (a.unresolved_imports.length + a.external_imports.length))
-    .slice(0, 3);
 
   return (
     <aside className="insights-panel" aria-label="Repository insights">
@@ -38,19 +33,37 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
         <Stat label="Edges" value={graph.edges.length} />
         <Stat label="Skipped" value={graph.stats.skipped_files} />
       </div>
-      <InsightList title="Largest files" icon={<ListTree size={15} />} items={largest} valueFor={(node) => `${node.metrics.loc} LoC`} onSelectNode={onSelectNode} />
-      <InsightList title="Complexity" icon={<BarChart3 size={15} />} items={complex} valueFor={(node) => `Cx ${node.metrics.complexity}`} onSelectNode={onSelectNode} />
-      <InsightList title="Dependency hubs" icon={<GitMerge size={15} />} items={hubs} valueFor={(node) => `${node.metrics.dependent_count} uses`} onSelectNode={onSelectNode} />
+      <InsightList title="Largest files" icon={<ListTree size={15} />} items={insights?.largest ?? []} valueFor={(node) => `${node.metrics.loc} LoC`} onSelectNode={onSelectNode} />
+      <InsightList title="Complexity" icon={<BarChart3 size={15} />} items={insights?.complex ?? []} valueFor={(node) => `Cx ${node.metrics.complexity}`} onSelectNode={onSelectNode} />
+      <InsightList title="Dependency hubs" icon={<GitMerge size={15} />} items={insights?.hubs ?? []} valueFor={(node) => `${node.metrics.dependent_count} uses`} onSelectNode={onSelectNode} />
       <InsightList
-        title="External / unresolved"
+        title="Unresolved imports"
         icon={<AlertTriangle size={15} />}
-        items={unresolved}
-        valueFor={(node) => `${node.unresolved_imports.length + node.external_imports.length} refs`}
+        items={insights?.unresolved ?? []}
+        valueFor={(node) => `${node.unresolved_imports.length} refs`}
         onSelectNode={onSelectNode}
         fallback="No unresolved references in analyzed files."
       />
+      <InsightList
+        title="External imports"
+        icon={<AlertTriangle size={15} />}
+        items={insights?.external ?? []}
+        valueFor={(node) => `${node.external_imports.length} refs`}
+        onSelectNode={onSelectNode}
+        fallback="No external package references in analyzed files."
+      />
     </aside>
   );
+}
+
+function buildInsights(nodes: GraphNode[]) {
+  return {
+    largest: topBy(nodes, (node) => node.metrics.loc),
+    complex: topBy(nodes, (node) => node.metrics.complexity),
+    hubs: topBy(nodes, (node) => node.metrics.dependent_count),
+    unresolved: topBy(nodes, (node) => node.unresolved_imports.length),
+    external: topBy(nodes, (node) => node.external_imports.length)
+  };
 }
 
 function topBy(nodes: GraphNode[], score: (node: GraphNode) => number): GraphNode[] {

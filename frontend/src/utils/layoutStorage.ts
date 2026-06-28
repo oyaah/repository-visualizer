@@ -1,12 +1,16 @@
 import type { Node as FlowNode, XYPosition } from '@xyflow/react';
 import type { GraphNode } from '../types/graph';
 
-type StoredLayout = Record<string, XYPosition>;
+export type StoredLayout = Record<string, XYPosition>;
 
 const PREFIX = 'repository-visualizer:layout:';
 
 export function applySavedLayout(flowNodes: FlowNode[], rootPath: string, graphNodes: GraphNode[]): FlowNode[] {
-  const layout = readLayout(rootPath, graphNodes);
+  const layout = readSavedLayout(rootPath, graphNodes);
+  return applyLayout(flowNodes, layout);
+}
+
+export function applyLayout(flowNodes: FlowNode[], layout: StoredLayout): FlowNode[] {
   if (!Object.keys(layout).length) {
     return flowNodes;
   }
@@ -18,7 +22,7 @@ export function applySavedLayout(flowNodes: FlowNode[], rootPath: string, graphN
 }
 
 export function saveNodeLayout(rootPath: string, graphNodes: GraphNode[], nodeId: string, position: XYPosition): void {
-  const layout = readLayout(rootPath, graphNodes);
+  const layout = readSavedLayout(rootPath, graphNodes);
   writeLayout(rootPath, graphNodes, {
     ...layout,
     [nodeId]: { x: position.x, y: position.y }
@@ -34,7 +38,7 @@ export function storageKey(rootPath: string, graphNodes: GraphNode[]): string {
   return `${PREFIX}${hash(signature)}`;
 }
 
-function readLayout(rootPath: string, graphNodes: GraphNode[]): StoredLayout {
+export function readSavedLayout(rootPath: string, graphNodes: GraphNode[]): StoredLayout {
   const raw = storage()?.getItem(storageKey(rootPath, graphNodes));
   if (!raw) {
     return {};

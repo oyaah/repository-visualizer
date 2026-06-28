@@ -50,6 +50,10 @@ def parse_python_dependencies(text: str) -> list[Dependency]:
             dots = "." * node.level
             if node.module:
                 deps.append(Dependency(raw=f"{dots}{node.module}", kind=EdgeKind.IMPORT, is_relative=node.level > 0))
+                if node.level == 0:
+                    for alias in node.names:
+                        if alias.name != "*":
+                            deps.append(Dependency(raw=f"{node.module}.{alias.name}", kind=EdgeKind.IMPORT))
             else:
                 for alias in node.names:
                     deps.append(Dependency(raw=f"{dots}{alias.name}", kind=EdgeKind.IMPORT, is_relative=node.level > 0))

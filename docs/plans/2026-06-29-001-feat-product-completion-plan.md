@@ -17,9 +17,11 @@ This plan turns the current working MVP into a stronger project by closing the s
 
 ---
 
-## Current Deliverable Coverage
+## Baseline Deliverable Coverage
 
-| Brief item | Current status | Gap |
+This table captured the state when the plan was written. The completion notes above summarize what shipped.
+
+| Brief item | Baseline status | Gap |
 |---|---:|---|
 | Traverse a local directory | Done | Needs `.gitignore`-aware polish later |
 | Parse dependencies and lines of code | Done | Parser accuracy can improve for Python packages and TypeScript aliases |

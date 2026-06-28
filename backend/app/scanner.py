@@ -99,6 +99,7 @@ class IgnoreRule:
     pattern: str
     directory_only: bool
     anchored: bool
+    negated: bool
 
 
 def scan_repository(root: Path, options: AnalyzeRequest | None = None) -> ScanResult:
@@ -223,30 +224,37 @@ def load_gitignore_rules(root: Path) -> list[IgnoreRule]:
     rules: list[IgnoreRule] = []
     for raw_line in lines:
         line = raw_line.strip()
-        if not line or line.startswith("#") or line.startswith("!"):
+        if not line or line.startswith("#"):
             continue
+        negated = line.startswith("!")
+        if negated:
+            line = line[1:]
         directory_only = line.endswith("/")
         pattern = line.rstrip("/")
         anchored = pattern.startswith("/")
         pattern = pattern.lstrip("/")
         if pattern:
-            rules.append(IgnoreRule(pattern=pattern, directory_only=directory_only, anchored=anchored))
+            rules.append(IgnoreRule(pattern=pattern, directory_only=directory_only, anchored=anchored, negated=negated))
     return rules
 
 
 def is_gitignored(relative_path: str, is_dir: bool, rules: list[IgnoreRule]) -> bool:
     normalized = relative_path.strip("/")
     name = Path(normalized).name
+    ignored = False
     for rule in rules:
         if rule.directory_only and not is_dir:
             continue
+        matches = False
         if rule.anchored and fnmatch(normalized, rule.pattern):
-            return True
-        if "/" in rule.pattern and fnmatch(normalized, rule.pattern):
-            return True
-        if "/" not in rule.pattern and (fnmatch(name, rule.pattern) or any(fnmatch(part, rule.pattern) for part in normalized.split("/"))):
-            return True
-    return False
+            matches = True
+        elif "/" in rule.pattern and fnmatch(normalized, rule.pattern):
+            matches = True
+        elif "/" not in rule.pattern and (fnmatch(name, rule.pattern) or any(fnmatch(part, rule.pattern) for part in normalized.split("/"))):
+            matches = True
+        if matches:
+            ignored = not rule.negated
+    return ignored
 
 
 def calculate_metrics(text: str, size_bytes: int) -> FileMetrics:

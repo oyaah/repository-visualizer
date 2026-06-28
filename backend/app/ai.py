@@ -113,6 +113,8 @@ def safe_join(root: Path, file_path: str) -> Path:
 def default_model(provider: str) -> str:
     if provider == "gemini":
         return "gemini-2.5-flash"
+    if provider != "openai":
+        raise ValueError("provider must be openai or gemini")
     return "gpt-4.1-mini"
 
 
@@ -124,15 +126,19 @@ def cache_key(file_path: str, content_hash: str, provider: str, model: str) -> s
 def disabled_ai_reason(provider: str) -> str | None:
     if provider == "gemini" and not os.getenv("GEMINI_API_KEY"):
         return "Set GEMINI_API_KEY to enable Gemini summaries."
-    if provider != "gemini" and not os.getenv("OPENAI_API_KEY"):
+    if provider == "openai" and not os.getenv("OPENAI_API_KEY"):
         return "Set OPENAI_API_KEY to enable OpenAI summaries."
+    if provider not in {"openai", "gemini"}:
+        return "provider must be openai or gemini"
     return None
 
 
 async def call_provider(provider: str, model: str, prompt: str) -> str:
     if provider == "gemini":
         return await call_gemini(model, prompt)
-    return await call_openai(model, prompt)
+    if provider == "openai":
+        return await call_openai(model, prompt)
+    raise ValueError("provider must be openai or gemini")
 
 
 async def call_openai(model: str, prompt: str) -> str:

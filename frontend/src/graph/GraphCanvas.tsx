@@ -12,7 +12,7 @@ import {
   type NodeProps
 } from '@xyflow/react';
 import type { GraphNode, GraphResponse } from '../types/graph';
-import { applySavedLayout, clearSavedLayout, saveNodeLayout } from '../utils/layoutStorage';
+import { applyLayout, clearSavedLayout, readSavedLayout, saveNodeLayout } from '../utils/layoutStorage';
 import { toFlowEdges, toFlowNodes } from './layout';
 
 type GraphMode = 'all' | 'neighborhood';
@@ -48,9 +48,10 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
     const edges = (graph?.edges ?? []).filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
     return { nodes, edges };
   }, [extension, graph, graphMode, query, selectedNodeId]);
+  const savedLayout = useMemo(() => readSavedLayout(graph?.root_path ?? '', graph?.nodes ?? []), [graph?.nodes, graph?.root_path, layoutVersion]);
   const flowNodes = useMemo(
-    () => applySavedLayout(toFlowNodes(visibleGraph.nodes, visibleGraph.edges), graph?.root_path ?? '', graph?.nodes ?? []),
-    [graph?.nodes, graph?.root_path, layoutVersion, visibleGraph]
+    () => applyLayout(toFlowNodes(visibleGraph.nodes, visibleGraph.edges), savedLayout),
+    [savedLayout, visibleGraph]
   );
   const flowEdges = useMemo(() => toFlowEdges(visibleGraph.edges), [visibleGraph]);
   const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
@@ -179,17 +180,16 @@ function nodesForMode(graph: GraphResponse | null, graphMode: GraphMode, selecte
     return graph.nodes;
   }
 
-  const selectedNode = graph.nodes.find((node) => node.id === selectedNodeId);
-  if (!selectedNode) {
+  if (!graph.nodes.some((node) => node.id === selectedNodeId)) {
     return graph.nodes;
   }
 
-  const ids = new Set<string>([selectedNode.id, ...selectedNode.imports, ...selectedNode.imported_by]);
+  const ids = new Set<string>([selectedNodeId]);
   graph.edges.forEach((edge) => {
-    if (edge.source === selectedNode.id) {
+    if (edge.source === selectedNodeId) {
       ids.add(edge.target);
     }
-    if (edge.target === selectedNode.id) {
+    if (edge.target === selectedNodeId) {
       ids.add(edge.source);
     }
   });

@@ -47,6 +47,41 @@ def test_graph_resolves_typescript_path_aliases(tmp_path: Path) -> None:
     assert ("src/App.tsx", "src/components/Panel.tsx") in edges
 
 
+def test_graph_resolves_nested_typescript_path_aliases(tmp_path: Path) -> None:
+    (tmp_path / "frontend" / "src" / "components").mkdir(parents=True)
+    (tmp_path / "frontend" / "tsconfig.json").write_text('{"compilerOptions":{"baseUrl":".","paths":{"@/*":["src/*"]}}}', encoding="utf-8")
+    (tmp_path / "frontend" / "src" / "App.tsx").write_text("import Panel from '@/components/Panel';\n", encoding="utf-8")
+    (tmp_path / "frontend" / "src" / "components" / "Panel.tsx").write_text("export default function Panel() { return null }\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    edges = {(edge.source, edge.target) for edge in graph.edges}
+    assert ("frontend/src/App.tsx", "frontend/src/components/Panel.tsx") in edges
+
+
+def test_graph_resolves_parent_directory_imports(tmp_path: Path) -> None:
+    (tmp_path / "src" / "components").mkdir(parents=True)
+    (tmp_path / "src" / "utils.ts").write_text("export const value = 1;\n", encoding="utf-8")
+    (tmp_path / "src" / "components" / "Panel.tsx").write_text("import { value } from '../utils';\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    edges = {(edge.source, edge.target) for edge in graph.edges}
+    assert ("src/components/Panel.tsx", "src/utils.ts") in edges
+
+
+def test_graph_resolves_from_import_module_aliases(tmp_path: Path) -> None:
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "pkg" / "main.py").write_text("from pkg import utils\n", encoding="utf-8")
+    (tmp_path / "pkg" / "utils.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    edges = {(edge.source, edge.target) for edge in graph.edges}
+    assert ("pkg/main.py", "pkg/utils.py") in edges
+
+
 def test_graph_handles_cycles_without_recursing(tmp_path: Path) -> None:
     (tmp_path / "a.py").write_text("import b\n", encoding="utf-8")
     (tmp_path / "b.py").write_text("import a\n", encoding="utf-8")

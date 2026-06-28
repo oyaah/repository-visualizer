@@ -69,6 +69,17 @@ def test_summarize_returns_disabled_without_api_key(tmp_path: Path, monkeypatch)
     assert "OPENAI_API_KEY" in data["error"]
 
 
+def test_summarize_rejects_unknown_provider(tmp_path: Path) -> None:
+    (tmp_path / "main.py").write_text("print('ok')\n", encoding="utf-8")
+
+    response = client.post(
+        "/api/summarize",
+        json={"root_path": str(tmp_path), "file_path": "main.py", "provider": "typo"},
+    )
+
+    assert response.status_code == 422
+
+
 def test_summarize_cache_only_requires_generation_without_provider_call(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     called = False
