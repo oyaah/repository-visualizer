@@ -29,11 +29,26 @@ export type GraphEdge = {
   label: string;
 };
 
+export type AnalyzeOptions = {
+  max_files: number;
+  include_tests: boolean;
+  include_vendor: boolean;
+};
+
+export type GraphStats = {
+  total_files_found: number;
+  analyzed_files: number;
+  skipped_files: number;
+  truncated: boolean;
+  warnings: string[];
+};
+
 export type GraphResponse = {
   root_path: string;
   nodes: GraphNode[];
   edges: GraphEdge[];
   ignored_directories: string[];
+  stats: GraphStats;
 };
 
 export type SummaryResponse = {
@@ -46,4 +61,3 @@ export type SummaryResponse = {
   provider: string | null;
   model: string | null;
 };
-

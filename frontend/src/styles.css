@@ -108,6 +108,37 @@ h1 {
   font-weight: 700;
 }
 
+.scan-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: end;
+  margin-top: 10px;
+}
+
+.scan-options label {
+  margin: 0;
+}
+
+.scan-options input[type="number"] {
+  display: block;
+  width: 110px;
+  margin-top: 5px;
+  padding: 8px 9px;
+}
+
+.check-option {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  min-height: 38px;
+}
+
+.check-option input {
+  width: 16px;
+  height: 16px;
+}
+
 .error-banner {
   display: flex;
   align-items: center;
@@ -153,6 +184,50 @@ h1 {
   background: rgba(248, 250, 248, 0.92);
   padding: 8px 10px;
   color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.graph-filter {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-weight: 700;
+}
+
+.graph-filter input,
+.graph-filter select {
+  width: 150px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: #fff;
+  color: #17201b;
+  padding: 6px 8px;
+}
+
+.graph-filter.compact select {
+  width: 84px;
+}
+
+.warning-pill {
+  border: 1px solid #e3c15c;
+  border-radius: 999px;
+  background: #fff7d7;
+  color: #6a4b00;
+  padding: 3px 8px;
+  font-weight: 800;
+}
+
+.graph-warning {
+  position: absolute;
+  z-index: 2;
+  right: 12px;
+  bottom: 12px;
+  max-width: min(560px, calc(100% - 24px));
+  border: 1px solid #e3c15c;
+  border-radius: 8px;
+  background: rgba(255, 249, 224, 0.94);
+  color: #634600;
+  padding: 9px 11px;
   font-size: 13px;
 }
 
@@ -388,5 +463,14 @@ h1 {
 
   .repo-form-row {
     flex-direction: column;
+  }
+
+  .graph-toolbar {
+    right: 12px;
+  }
+
+  .graph-filter input,
+  .graph-filter select {
+    width: 120px;
   }
 }

@@ -5,7 +5,7 @@ import { AppShell } from './components/AppShell';
 import { NodePanel } from './components/NodePanel';
 import { RepoPathForm } from './components/RepoPathForm';
 import { GraphCanvas } from './graph/GraphCanvas';
-import type { GraphNode, GraphResponse } from './types/graph';
+import type { AnalyzeOptions, GraphNode, GraphResponse } from './types/graph';
 
 export function App() {
   const [graph, setGraph] = useState<GraphResponse | null>(null);
@@ -13,11 +13,11 @@ export function App() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleAnalyze(rootPath: string) {
+  async function handleAnalyze(rootPath: string, options: AnalyzeOptions) {
     setLoading(true);
     setError(null);
     try {
-      const response = await analyzeRepository(rootPath);
+      const response = await analyzeRepository(rootPath, options);
       setGraph(response);
       setSelectedNode(response.nodes[0] ?? null);
     } catch (err) {
@@ -51,4 +51,3 @@ export function App() {
     </AppShell>
   );
 }
-

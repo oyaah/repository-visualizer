@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import {
   Background,
   Controls,
@@ -20,8 +20,29 @@ type Props = {
 };
 
 export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
-  const flowNodes = useMemo(() => toFlowNodes(graph?.nodes ?? [], graph?.edges ?? []), [graph]);
-  const flowEdges = useMemo(() => toFlowEdges(graph?.edges ?? []), [graph]);
+  const [query, setQuery] = useState('');
+  const [extension, setExtension] = useState('all');
+  const extensions = useMemo(() => {
+    const values = new Set((graph?.nodes ?? []).map((node) => node.extension || 'file'));
+    return Array.from(values).sort();
+  }, [graph]);
+  const visibleGraph = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    const nodes = (graph?.nodes ?? []).filter((node) => {
+      const matchesQuery =
+        !normalizedQuery ||
+        node.path.toLowerCase().includes(normalizedQuery) ||
+        node.label.toLowerCase().includes(normalizedQuery) ||
+        node.folder.toLowerCase().includes(normalizedQuery);
+      const matchesExtension = extension === 'all' || node.extension === extension;
+      return matchesQuery && matchesExtension;
+    });
+    const visibleIds = new Set(nodes.map((node) => node.id));
+    const edges = (graph?.edges ?? []).filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+    return { nodes, edges };
+  }, [extension, graph, query]);
+  const flowNodes = useMemo(() => toFlowNodes(visibleGraph.nodes, visibleGraph.edges), [visibleGraph]);
+  const flowEdges = useMemo(() => toFlowEdges(visibleGraph.edges), [visibleGraph]);
   const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(flowEdges);
 
@@ -40,10 +61,36 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
   return (
     <section className="graph-panel" aria-label="Repository dependency graph">
       <div className="graph-toolbar">
-        <strong>{graph.nodes.length} files</strong>
-        <span>{graph.edges.length} local edges</span>
+        <strong>{visibleGraph.nodes.length} of {graph.nodes.length} files</strong>
+        <span>{visibleGraph.edges.length} of {graph.edges.length} local edges</span>
+        <span>{graph.stats.analyzed_files} analyzed / {graph.stats.total_files_found} found</span>
+        {graph.stats.skipped_files ? <span>{graph.stats.skipped_files} skipped</span> : null}
         {graph.ignored_directories.length ? <span>Ignored: {graph.ignored_directories.join(', ')}</span> : null}
+        <label className="graph-filter">
+          Search
+          <input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="path or folder"
+            aria-label="Filter graph by path"
+          />
+        </label>
+        <label className="graph-filter compact">
+          Type
+          <select value={extension} onChange={(event) => setExtension(event.target.value)} aria-label="Filter graph by extension">
+            <option value="all">All</option>
+            {extensions.map((value) => (
+              <option key={value} value={value}>{value || 'file'}</option>
+            ))}
+          </select>
+        </label>
+        {graph.stats.truncated ? <span className="warning-pill">Limited scan</span> : null}
       </div>
+      {graph.stats.warnings.length ? (
+        <div className="graph-warning" role="status">
+          {graph.stats.warnings.join(' ')}
+        </div>
+      ) : null}
       <ReactFlow
         nodes={nodes.map((node) => ({ ...node, selected: node.id === selectedNodeId }))}
         edges={edges}

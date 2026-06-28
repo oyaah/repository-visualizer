@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { GraphCanvas } from '../src/graph/GraphCanvas';
 import type { GraphResponse } from '../src/types/graph';
@@ -20,6 +20,13 @@ vi.mock('@xyflow/react', async () => {
 const graph: GraphResponse = {
   root_path: '/tmp/repo',
   ignored_directories: [],
+  stats: {
+    total_files_found: 2,
+    analyzed_files: 2,
+    skipped_files: 0,
+    truncated: false,
+    warnings: []
+  },
   nodes: [
     {
       id: 'src/main.py',
@@ -54,10 +61,44 @@ const graph: GraphResponse = {
 describe('GraphCanvas', () => {
   it('renders graph nodes and counts', () => {
     render(<GraphCanvas graph={graph} selectedNodeId={null} onSelectNode={() => undefined} />);
-    expect(screen.getByText('2 files')).toBeInTheDocument();
-    expect(screen.getByText('1 local edges')).toBeInTheDocument();
+    expect(screen.getByText('2 of 2 files')).toBeInTheDocument();
+    expect(screen.getByText('1 of 1 local edges')).toBeInTheDocument();
+    expect(screen.getByText('2 analyzed / 2 found')).toBeInTheDocument();
     expect(screen.getByText('main.py')).toBeInTheDocument();
     expect(screen.getByText('utils.py')).toBeInTheDocument();
+  });
+
+  it('filters graph nodes by path query', () => {
+    render(<GraphCanvas graph={graph} selectedNodeId={null} onSelectNode={() => undefined} />);
+
+    fireEvent.change(screen.getByLabelText('Filter graph by path'), { target: { value: 'utils' } });
+
+    expect(screen.getByText('1 of 2 files')).toBeInTheDocument();
+    expect(screen.queryByText('main.py')).not.toBeInTheDocument();
+    expect(screen.getByText('utils.py')).toBeInTheDocument();
+  });
+
+  it('shows backend warnings for limited scans', () => {
+    render(
+      <GraphCanvas
+        graph={{
+          ...graph,
+          stats: {
+            total_files_found: 10,
+            analyzed_files: 2,
+            skipped_files: 8,
+            truncated: true,
+            warnings: ['Analysis limited to 2 files out of 10 eligible files.']
+          }
+        }}
+        selectedNodeId={null}
+        onSelectNode={() => undefined}
+      />
+    );
+
+    expect(screen.getByText('Limited scan')).toBeInTheDocument();
+    expect(screen.getByText('Analysis limited to 2 files out of 10 eligible files.')).toBeInTheDocument();
+    expect(screen.getByText('8 skipped')).toBeInTheDocument();
   });
 
   it('renders empty state before analysis', () => {
@@ -65,4 +106,3 @@ describe('GraphCanvas', () => {
     expect(screen.getByText('No repository loaded')).toBeInTheDocument();
   });
 });
-
