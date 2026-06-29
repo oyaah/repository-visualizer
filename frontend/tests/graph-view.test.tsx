@@ -56,7 +56,9 @@ const graph: GraphResponse = {
       external_imports: []
     }
   ],
-  edges: [{ id: 'e1', source: 'src/main.py', target: 'src/utils.py', kind: 'import', label: 'import' }]
+  edges: [{ id: 'e1', source: 'src/main.py', target: 'src/utils.py', kind: 'import', label: 'import' }],
+  folder_summaries: [{ name: 'src', files: 2, loc: 7 }],
+  cycles: []
 };
 
 const graphWithOrphan: GraphResponse = {

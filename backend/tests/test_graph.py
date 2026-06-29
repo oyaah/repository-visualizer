@@ -92,6 +92,31 @@ def test_graph_handles_cycles_without_recursing(tmp_path: Path) -> None:
     assert ("a.py", "b.py") in edges
     assert ("b.py", "a.py") in edges
     assert len(graph.edges) == 2
+    assert graph.cycles[0].files == ["a.py", "b.py"]
+    assert graph.cycles[0].edge_count == 2
+
+
+def test_graph_returns_no_cycles_for_acyclic_graph(tmp_path: Path) -> None:
+    (tmp_path / "a.py").write_text("import b\n", encoding="utf-8")
+    (tmp_path / "b.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    assert graph.cycles == []
+
+
+def test_graph_returns_folder_summaries(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "main.py").write_text("import src.utils\nif True:\n    pass\n", encoding="utf-8")
+    (tmp_path / "src" / "utils.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tmp_path / "root.py").write_text("print('ok')\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    summaries = {summary.name: summary for summary in graph.folder_summaries}
+    assert summaries["src"].files == 2
+    assert summaries["src"].loc == 4
+    assert summaries["root"].files == 1
 
 
 def test_graph_deduplicates_repeated_import_edges(tmp_path: Path) -> None:

@@ -1,11 +1,22 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 import json
 import posixpath
 from pathlib import Path
 
-from app.models import AnalyzeRequest, EdgeKind, FileMetrics, GraphEdge, GraphNode, GraphResponse, GraphStats
+from app.models import (
+    AnalyzeRequest,
+    CycleSummary,
+    EdgeKind,
+    FileMetrics,
+    FolderSummary,
+    GraphEdge,
+    GraphNode,
+    GraphResponse,
+    GraphStats,
+)
 from app.parsers import Dependency, parse_dependencies
 from app.scanner import ScannedFile, scan_repository
 
@@ -72,10 +83,15 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
             dependent_count=len(node.imported_by),
         )
 
+    sorted_nodes = sorted(nodes.values(), key=lambda node: node.path)
+    sorted_edges = sorted(edges, key=lambda edge: edge.id)
+
     return GraphResponse(
         root_path=str(root.resolve()),
-        nodes=sorted(nodes.values(), key=lambda node: node.path),
-        edges=sorted(edges, key=lambda edge: edge.id),
+        nodes=sorted_nodes,
+        edges=sorted_edges,
+        folder_summaries=build_folder_summaries(sorted_nodes),
+        cycles=find_cycles(sorted_nodes, sorted_edges),
         ignored_directories=scan_result.ignored_directories,
         stats=GraphStats(
             total_files_found=scan_result.total_files_found,
@@ -86,6 +102,79 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
             warnings=scan_result.warnings,
         ),
     )
+
+
+def build_folder_summaries(nodes: list[GraphNode]) -> list[FolderSummary]:
+    summaries: dict[str, dict[str, int]] = defaultdict(lambda: {"files": 0, "loc": 0})
+    for node in nodes:
+        name = node.folder.split("/", 1)[0] if node.folder else "root"
+        summaries[name]["files"] += 1
+        summaries[name]["loc"] += node.metrics.loc
+    return sorted(
+        (FolderSummary(name=name, **summary) for name, summary in summaries.items()),
+        key=lambda item: (-item.loc, -item.files, item.name),
+    )
+
+
+def find_cycles(nodes: list[GraphNode], edges: list[GraphEdge]) -> list[CycleSummary]:
+    node_ids = {node.id for node in nodes}
+    graph = {node_id: [] for node_id in node_ids}
+    self_loops: set[str] = set()
+    for edge in edges:
+        if edge.source not in node_ids or edge.target not in node_ids:
+            continue
+        graph[edge.source].append(edge.target)
+        if edge.source == edge.target:
+            self_loops.add(edge.source)
+
+    index = 0
+    stack: list[str] = []
+    indexes: dict[str, int] = {}
+    lowlinks: dict[str, int] = {}
+    on_stack: set[str] = set()
+    components: list[list[str]] = []
+
+    def strongconnect(node_id: str) -> None:
+        nonlocal index
+        indexes[node_id] = index
+        lowlinks[node_id] = index
+        index += 1
+        stack.append(node_id)
+        on_stack.add(node_id)
+
+        for target in graph[node_id]:
+            if target not in indexes:
+                strongconnect(target)
+                lowlinks[node_id] = min(lowlinks[node_id], lowlinks[target])
+            elif target in on_stack:
+                lowlinks[node_id] = min(lowlinks[node_id], indexes[target])
+
+        if lowlinks[node_id] != indexes[node_id]:
+            return
+
+        component = []
+        while True:
+            current = stack.pop()
+            on_stack.remove(current)
+            component.append(current)
+            if current == node_id:
+                break
+        if len(component) > 1 or component[0] in self_loops:
+            components.append(sorted(component))
+
+    for node_id in sorted(node_ids):
+        if node_id not in indexes:
+            strongconnect(node_id)
+
+    component_by_node = {node_id: index for index, component in enumerate(components) for node_id in component}
+    edge_counts = [0] * len(components)
+    for edge in edges:
+        source_component = component_by_node.get(edge.source)
+        if source_component is not None and source_component == component_by_node.get(edge.target):
+            edge_counts[source_component] += 1
+
+    cycles = [CycleSummary(files=component, edge_count=edge_counts[index]) for index, component in enumerate(components)]
+    return sorted(cycles, key=lambda item: (-len(item.files), -item.edge_count, item.files[0]))
 
 
 def resolve_dependency(source: ScannedFile, dependency: Dependency, files: dict[str, ScannedFile], ts_aliases: list[TsPathAlias] | None = None) -> str | None:

@@ -1,21 +1,15 @@
 import { AlertTriangle, BarChart3, GitMerge, ListTree } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import type { GraphNode, GraphResponse } from '../types/graph';
+import type { CycleSummary, FolderSummary, GraphNode, GraphResponse } from '../types/graph';
 
 type Props = {
   graph: GraphResponse | null;
   onSelectNode: (node: GraphNode) => void;
 };
 
-type FolderInsight = {
-  name: string;
-  files: number;
-  loc: number;
-};
-
 export function RepositoryInsights({ graph, onSelectNode }: Props) {
-  const insights = useMemo(() => (graph ? buildInsights(graph.nodes) : null), [graph]);
+  const insights = useMemo(() => (graph ? buildInsights(graph) : null), [graph]);
 
   if (!graph) {
     return (
@@ -40,6 +34,7 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
         <Stat label="Skipped" value={graph.stats.skipped_files} />
       </div>
       <FolderList folders={insights?.folders ?? []} />
+      <CycleList cycles={insights?.cycles ?? []} nodes={graph.nodes} onSelectNode={onSelectNode} />
       <InsightList title="Largest files" icon={<ListTree size={15} />} items={insights?.largest ?? []} valueFor={(node) => `${node.metrics.loc} LoC`} onSelectNode={onSelectNode} />
       <InsightList title="Complexity" icon={<BarChart3 size={15} />} items={insights?.complex ?? []} valueFor={(node) => `Cx ${node.metrics.complexity}`} onSelectNode={onSelectNode} />
       <InsightList title="Dependency hubs" icon={<GitMerge size={15} />} items={insights?.hubs ?? []} valueFor={(node) => `${node.metrics.dependent_count} uses`} onSelectNode={onSelectNode} />
@@ -63,14 +58,15 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
   );
 }
 
-function buildInsights(nodes: GraphNode[]) {
+function buildInsights(graph: GraphResponse) {
   return {
-    folders: topFolders(nodes),
-    largest: topBy(nodes, (node) => node.metrics.loc),
-    complex: topBy(nodes, (node) => node.metrics.complexity),
-    hubs: topBy(nodes, (node) => node.metrics.dependent_count),
-    unresolved: topBy(nodes, (node) => node.unresolved_imports.length),
-    external: topBy(nodes, (node) => node.external_imports.length)
+    folders: graph.folder_summaries.slice(0, 3),
+    cycles: graph.cycles.slice(0, 3),
+    largest: topBy(graph.nodes, (node) => node.metrics.loc),
+    complex: topBy(graph.nodes, (node) => node.metrics.complexity),
+    hubs: topBy(graph.nodes, (node) => node.metrics.dependent_count),
+    unresolved: topBy(graph.nodes, (node) => node.unresolved_imports.length),
+    external: topBy(graph.nodes, (node) => node.external_imports.length)
   };
 }
 
@@ -78,22 +74,6 @@ function topBy(nodes: GraphNode[], score: (node: GraphNode) => number): GraphNod
   return [...nodes]
     .filter((node) => score(node) > 0)
     .sort((a, b) => score(b) - score(a) || a.path.localeCompare(b.path))
-    .slice(0, 3);
-}
-
-function topFolders(nodes: GraphNode[]): FolderInsight[] {
-  const folders = new Map<string, FolderInsight>();
-
-  nodes.forEach((node) => {
-    const name = node.path.includes('/') ? node.path.split('/')[0] : 'root';
-    const current = folders.get(name) ?? { name, files: 0, loc: 0 };
-    current.files += 1;
-    current.loc += node.metrics.loc;
-    folders.set(name, current);
-  });
-
-  return Array.from(folders.values())
-    .sort((a, b) => b.loc - a.loc || b.files - a.files || a.name.localeCompare(b.name))
     .slice(0, 3);
 }
 
@@ -142,7 +122,7 @@ function InsightList({
   );
 }
 
-function FolderList({ folders }: { folders: FolderInsight[] }) {
+function FolderList({ folders }: { folders: FolderSummary[] }) {
   return (
     <section className="insight-section">
       <h3><ListTree size={15} />Top folders</h3>
@@ -159,6 +139,39 @@ function FolderList({ folders }: { folders: FolderInsight[] }) {
         </ol>
       ) : (
         <p>No folders found.</p>
+      )}
+    </section>
+  );
+}
+
+function CycleList({
+  cycles,
+  nodes,
+  onSelectNode
+}: {
+  cycles: CycleSummary[];
+  nodes: GraphNode[];
+  onSelectNode: (node: GraphNode) => void;
+}) {
+  return (
+    <section className="insight-section">
+      <h3><GitMerge size={15} />Cycles</h3>
+      {cycles.length ? (
+        <ol>
+          {cycles.map((cycle) => {
+            const firstNode = nodes.find((node) => node.id === cycle.files[0]);
+            return (
+              <li key={cycle.files.join('|')}>
+                <button type="button" onClick={() => firstNode && onSelectNode(firstNode)}>
+                  <span>{cycle.files.join(' -> ')}</span>
+                  <strong>{cycle.files.length} files / {cycle.edge_count} edges</strong>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p>No dependency cycles in analyzed files.</p>
       )}
     </section>
   );

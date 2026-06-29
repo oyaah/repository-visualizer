@@ -68,10 +68,23 @@ class GraphStats(BaseModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class FolderSummary(BaseModel):
+    name: str
+    files: int
+    loc: int
+
+
+class CycleSummary(BaseModel):
+    files: list[str]
+    edge_count: int
+
+
 class GraphResponse(BaseModel):
     root_path: str
     nodes: list[GraphNode]
     edges: list[GraphEdge]
+    folder_summaries: list[FolderSummary] = Field(default_factory=list)
+    cycles: list[CycleSummary] = Field(default_factory=list)
     ignored_directories: list[str]
     stats: GraphStats
 

@@ -31,6 +31,9 @@ def test_analyze_returns_graph_for_fixture(tmp_path: Path) -> None:
     assert len(data["nodes"]) == 2
     assert data["edges"][0]["source"] == "main.py"
     assert data["edges"][0]["target"] == "utils.py"
+    assert data["folder_summaries"][0]["name"] == "root"
+    assert data["folder_summaries"][0]["files"] == 2
+    assert data["cycles"] == []
     assert data["stats"]["analyzed_files"] == 2
     assert data["stats"]["truncated"] is False
 

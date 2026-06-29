@@ -44,10 +44,23 @@ export type GraphStats = {
   warnings: string[];
 };
 
+export type FolderSummary = {
+  name: string;
+  files: number;
+  loc: number;
+};
+
+export type CycleSummary = {
+  files: string[];
+  edge_count: number;
+};
+
 export type GraphResponse = {
   root_path: string;
   nodes: GraphNode[];
   edges: GraphEdge[];
+  folder_summaries: FolderSummary[];
+  cycles: CycleSummary[];
   ignored_directories: string[];
   stats: GraphStats;
 };

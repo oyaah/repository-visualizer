@@ -48,7 +48,12 @@ const graph: GraphResponse = {
   edges: [
     { id: 'e1', source: 'src/main.py', target: 'src/complex.py', kind: 'import', label: 'import' },
     { id: 'e2', source: 'src/large.py', target: 'src/main.py', kind: 'import', label: 'import' }
-  ]
+  ],
+  folder_summaries: [
+    { name: 'tests', files: 1, loc: 200 },
+    { name: 'src', files: 3, loc: 190 }
+  ],
+  cycles: [{ files: ['src/complex.py', 'src/main.py'], edge_count: 2 }]
 };
 
 describe('RepositoryInsights', () => {
@@ -63,6 +68,9 @@ describe('RepositoryInsights', () => {
     expect(screen.getByText('190 LoC / 3 files')).toBeInTheDocument();
     expect(screen.getByText('tests')).toBeInTheDocument();
     expect(screen.getByText('200 LoC / 1 file')).toBeInTheDocument();
+    expect(screen.getByText('Cycles')).toBeInTheDocument();
+    expect(screen.getByText('src/complex.py -> src/main.py')).toBeInTheDocument();
+    expect(screen.getByText('2 files / 2 edges')).toBeInTheDocument();
     expect(screen.getAllByText('tests/test_large.py').length).toBeGreaterThan(0);
     expect(screen.getByText('200 LoC')).toBeInTheDocument();
     expect(screen.getAllByText('src/large.py').length).toBeGreaterThan(0);
@@ -80,6 +88,15 @@ describe('RepositoryInsights', () => {
     fireEvent.click(screen.getByRole('button', { name: 'src/large.py 120 LoC' }));
 
     expect(onSelectNode).toHaveBeenCalledWith(graph.nodes[2]);
+  });
+
+  it('selects the first file from a cycle row', () => {
+    const onSelectNode = vi.fn();
+    render(<RepositoryInsights graph={graph} onSelectNode={onSelectNode} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'src/complex.py -> src/main.py 2 files / 2 edges' }));
+
+    expect(onSelectNode).toHaveBeenCalledWith(graph.nodes[1]);
   });
 
   it('renders an empty state before analysis', () => {
