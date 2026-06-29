@@ -1,11 +1,15 @@
 ---
 title: "feat: Complete Repository Visualizer Product"
 type: feat
-status: active
+status: completed
 date: 2026-06-29
 ---
 
 # feat: Complete Repository Visualizer Product
+
+## Completion Notes
+
+Completed on 2026-06-29 across six focused commits. The app now has selection-driven cached summary state, repository insights, full/neighborhood graph modes, persisted graph layouts, hardened scan/dependency handling, CI, Docker packaging, and updated demo documentation.
 
 ## Summary
 
@@ -13,9 +17,11 @@ This plan turns the current working MVP into a stronger project by closing the s
 
 ---
 
-## Current Deliverable Coverage
+## Baseline Deliverable Coverage
 
-| Brief item | Current status | Gap |
+This table captured the state when the plan was written. The completion notes above summarize what shipped.
+
+| Brief item | Baseline status | Gap |
 |---|---:|---|
 | Traverse a local directory | Done | Needs `.gitignore`-aware polish later |
 | Parse dependencies and lines of code | Done | Parser accuracy can improve for Python packages and TypeScript aliases |
@@ -39,7 +45,7 @@ The app already demonstrates the original three deliverables, but it still feels
 **Brief completion**
 
 - R1. Selecting a node should trigger the summary workflow in the side panel without requiring a second “Explain file” action for cached or disabled summary states.
-- R2. AI requests must stay local-first and cost-aware, with clear provider configuration, disabled state, cache state, and no surprise paid request when keys are absent.
+- R2. AI requests must stay local-first and cost-aware, with clear OpenAI configuration, disabled state, cache state, and no surprise paid request when keys are absent.
 - R3. The existing file-summary cache must remain content-hash based so edited files are re-analyzed and unchanged files reuse cached summaries.
 
 **Product quality**
@@ -63,7 +69,7 @@ flowchart TB
   Selection --> Panel["Node side panel"]
   Panel --> Summary["Summary state machine"]
   Summary --> Cache["Local summary cache"]
-  Summary --> Provider["OpenAI or Gemini when configured"]
+  Summary --> OpenAI["OpenAI when configured"]
   Canvas --> LayoutStore["Saved layout per repository fingerprint"]
 ```
 
@@ -73,7 +79,7 @@ The product should keep the current simple request/response analysis path. The i
 
 ## Key Technical Decisions
 
-- **Auto-summary should be state-aware, not always paid:** On node selection, the panel should check summary state and show cached, disabled, loading, or error states. If provider keys are absent, the user gets immediate disabled guidance; if a cache hit exists, it appears without cost.
+- **Auto-summary should be state-aware, not always paid:** On node selection, the panel should check summary state and show cached, disabled, loading, or error states. If `OPENAI_API_KEY` is absent, the user gets immediate disabled guidance; if a cache hit exists, it appears without cost.
 - **Use local browser storage for saved layouts first:** Persisting layout in backend storage would add repo identity and lifecycle questions. Local storage is enough for a local-first desktop demo and keeps the implementation small.
 - **Add insight panels before background jobs:** A dashboard of hotspots and unresolved imports is more useful for onboarding than a job queue right now. Background jobs remain deferred unless scans become too slow under realistic caps.
 - **Improve parsers around common conventions, not full language semantics:** Python package roots, TypeScript path aliases, and `.gitignore` awareness give practical wins. Full AST support can wait.
@@ -85,14 +91,14 @@ The product should keep the current simple request/response analysis path. The i
 
 ### U1. Make Node Selection Trigger Summary State
 
-- **Goal:** Make selecting a graph node populate the side panel’s AI summary state automatically while preserving provider choice and cache behavior.
+- **Goal:** Make selecting a graph node populate the side panel’s AI summary state automatically while preserving OpenAI cache behavior.
 - **Requirements:** R1, R2, R3
 - **Dependencies:** None
 - **Files:** `frontend/src/App.tsx`, `frontend/src/components/NodePanel.tsx`, `frontend/src/api/client.ts`, `frontend/src/types/graph.ts`, `frontend/tests/node-panel.test.tsx`, `backend/app/ai.py`, `backend/tests/test_api.py`, `backend/tests/test_cache.py`
-- **Approach:** Move summary lifecycle from a purely button-driven action into a node/provider-driven effect. Keep the manual button as “refresh summary” when useful, but default node selection should immediately show cached/disabled/loading/error state. The backend can continue using `/api/summarize`; add small response fields only if the UI needs clearer cache/provider status.
-- **Patterns to follow:** Existing `SummaryService`, `SummaryCache`, and `NodePanel` provider selector.
-- **Test scenarios:** Selecting a node with no API key shows disabled provider guidance; selecting a cached file shows cached text without requiring another click; switching providers refreshes summary state; changing selected nodes clears stale summary text; provider errors render inside the panel.
-- **Verification:** Frontend tests prove selection-driven state; backend tests prove cache hits still depend on content hash and provider/model.
+- **Approach:** Move summary lifecycle from a purely button-driven action into a node-driven effect. Keep the manual button as “refresh summary” when useful, but default node selection should immediately show cached/disabled/loading/error state. The backend can continue using `/api/summarize`; add small response fields only if the UI needs clearer cache status.
+- **Patterns to follow:** Existing `SummaryService`, `SummaryCache`, and `NodePanel`.
+- **Test scenarios:** Selecting a node with no API key shows disabled OpenAI guidance; selecting a cached file shows cached text without requiring another click; changing selected nodes clears stale summary text; OpenAI errors render inside the panel.
+- **Verification:** Frontend tests prove selection-driven state; backend tests prove cache hits still depend on content hash and model.
 
 ### U2. Add Repository Insights Dashboard
 
@@ -164,7 +170,7 @@ The product should keep the current simple request/response analysis path. The i
 
 - Hardcoded behavior for Django or the sample fixture.
 - Executing target repository code to infer dependencies.
-- Sending source files to AI providers without explicit local API key configuration.
+- Sending source files to OpenAI without explicit local API key configuration.
 
 ---
 
@@ -179,7 +185,7 @@ The product should keep the current simple request/response analysis path. The i
 
 ## Acceptance Examples
 
-- AE1. After scanning a repo, clicking a node shows metrics and immediately shows either a cached summary, disabled provider guidance, loading state, or an error state.
+- AE1. After scanning a repo, clicking a node shows metrics and immediately shows either a cached summary, disabled OpenAI guidance, loading state, or an error state.
 - AE2. A reviewer can scan the sample repo, click a hotspot insight, see the matching node selected, switch to neighborhood mode, and understand its direct dependencies.
 - AE3. A user drags nodes into a custom layout, reloads the app, rescans the same repo, and sees the custom positions restored.
 - AE4. A fresh clone can run documented tests and start the app without guessing backend/frontend setup.

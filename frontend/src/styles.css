@@ -159,7 +159,8 @@ h1 {
 
 .graph-panel,
 .graph-empty,
-.node-panel {
+.node-panel,
+.insights-panel {
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
@@ -192,6 +193,48 @@ h1 {
   gap: 6px;
   align-items: center;
   font-weight: 700;
+}
+
+.graph-mode {
+  display: inline-flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.graph-mode button {
+  border: 0;
+  border-right: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-soft);
+  padding: 7px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.graph-mode button:last-child {
+  border-right: 0;
+}
+
+.graph-mode button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+.graph-reset {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--ink-soft);
+  padding: 7px 9px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.graph-reset:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .graph-filter input,
@@ -242,6 +285,133 @@ h1 {
 .graph-empty h2 {
   margin: 0 0 8px;
   color: #17201b;
+}
+
+.side-stack {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+}
+
+.insights-panel {
+  padding: 16px;
+}
+
+.insights-panel.empty {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 180px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.insights-panel.empty p {
+  margin: 0;
+  font-size: 13px;
+}
+
+.insights-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+
+.insights-header h2 {
+  margin: 2px 0 0;
+  font-size: 20px;
+}
+
+.insights-header > span {
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.insights-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.insights-stats div {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.insights-stats dt {
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.insights-stats dd {
+  margin: 2px 0 0;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.insight-section {
+  border-top: 1px solid var(--line);
+  padding-top: 11px;
+}
+
+.insight-section h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+
+.insight-section ol {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.insight-section button {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: inherit;
+  padding: 8px;
+  text-align: left;
+}
+
+.insight-section button:hover {
+  border-color: var(--accent);
+}
+
+.insight-section button span {
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.insight-section button strong {
+  font-size: 12px;
+}
+
+.insight-section p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 13px;
 }
 
 .react-flow {
@@ -391,24 +561,6 @@ h1 {
   padding-top: 16px;
 }
 
-.provider-select {
-  display: grid;
-  gap: 7px;
-  margin-bottom: 10px;
-  color: var(--ink-soft);
-  font-size: 12px;
-  font-weight: 800;
-}
-
-.provider-select select {
-  width: 100%;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  color: #17201b;
-  padding: 10px;
-}
-
 .summary-button {
   width: 100%;
 }
@@ -449,6 +601,10 @@ h1 {
 
   .node-panel {
     min-height: 280px;
+  }
+
+  .side-stack {
+    grid-row: 2;
   }
 }
 

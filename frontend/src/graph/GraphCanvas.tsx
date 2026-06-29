@@ -8,10 +8,14 @@ import {
   ReactFlow,
   useEdgesState,
   useNodesState,
+  type Node as FlowNode,
   type NodeProps
 } from '@xyflow/react';
 import type { GraphNode, GraphResponse } from '../types/graph';
+import { applyLayout, clearSavedLayout, readSavedLayout, saveNodeLayout } from '../utils/layoutStorage';
 import { toFlowEdges, toFlowNodes } from './layout';
+
+type GraphMode = 'all' | 'neighborhood';
 
 type Props = {
   graph: GraphResponse | null;
@@ -22,13 +26,16 @@ type Props = {
 export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
   const [query, setQuery] = useState('');
   const [extension, setExtension] = useState('all');
+  const [graphMode, setGraphMode] = useState<GraphMode>('all');
+  const [layoutVersion, setLayoutVersion] = useState(0);
   const extensions = useMemo(() => {
     const values = new Set((graph?.nodes ?? []).map((node) => node.extension || 'file'));
     return Array.from(values).sort();
   }, [graph]);
   const visibleGraph = useMemo(() => {
+    const candidateNodes = nodesForMode(graph, graphMode, selectedNodeId);
     const normalizedQuery = query.trim().toLowerCase();
-    const nodes = (graph?.nodes ?? []).filter((node) => {
+    const nodes = candidateNodes.filter((node) => {
       const matchesQuery =
         !normalizedQuery ||
         node.path.toLowerCase().includes(normalizedQuery) ||
@@ -40,8 +47,12 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
     const visibleIds = new Set(nodes.map((node) => node.id));
     const edges = (graph?.edges ?? []).filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
     return { nodes, edges };
-  }, [extension, graph, query]);
-  const flowNodes = useMemo(() => toFlowNodes(visibleGraph.nodes, visibleGraph.edges), [visibleGraph]);
+  }, [extension, graph, graphMode, query, selectedNodeId]);
+  const savedLayout = useMemo(() => readSavedLayout(graph?.root_path ?? '', graph?.nodes ?? []), [graph?.nodes, graph?.root_path, layoutVersion]);
+  const flowNodes = useMemo(
+    () => applyLayout(toFlowNodes(visibleGraph.nodes, visibleGraph.edges), savedLayout),
+    [savedLayout, visibleGraph]
+  );
   const flowEdges = useMemo(() => toFlowEdges(visibleGraph.edges), [visibleGraph]);
   const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(flowEdges);
@@ -78,6 +89,24 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
         <span>{graph.stats.analyzed_files} analyzed / {graph.stats.total_files_found} found</span>
         {graph.stats.skipped_files ? <span>{graph.stats.skipped_files} skipped</span> : null}
         {graph.ignored_directories.length ? <span>Ignored: {graph.ignored_directories.join(', ')}</span> : null}
+        <div className="graph-mode" aria-label="Graph display mode">
+          <button type="button" className={graphMode === 'all' ? 'active' : ''} onClick={() => setGraphMode('all')}>
+            Full
+          </button>
+          <button type="button" className={graphMode === 'neighborhood' ? 'active' : ''} onClick={() => setGraphMode('neighborhood')}>
+            Neighborhood
+          </button>
+        </div>
+        <button
+          type="button"
+          className="graph-reset"
+          onClick={() => {
+            clearSavedLayout(graph.root_path, graph.nodes);
+            setLayoutVersion((version) => version + 1);
+          }}
+        >
+          Reset layout
+        </button>
         <label className="graph-filter">
           Search
           <input
@@ -109,6 +138,7 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
         nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
+        onNodeDragStop={(_, node: FlowNode) => saveNodeLayout(graph.root_path, graph.nodes, node.id, node.position)}
         onNodeClick={(_, node) => onSelectNode(node.data as GraphNode)}
         fitView
       >
@@ -141,3 +171,28 @@ const RepoNode = memo(function RepoNode({ data, selected }: NodeProps) {
 });
 
 const nodeTypes = { repoNode: RepoNode };
+
+function nodesForMode(graph: GraphResponse | null, graphMode: GraphMode, selectedNodeId: string | null): GraphNode[] {
+  if (!graph) {
+    return [];
+  }
+  if (graphMode === 'all' || !selectedNodeId) {
+    return graph.nodes;
+  }
+
+  if (!graph.nodes.some((node) => node.id === selectedNodeId)) {
+    return graph.nodes;
+  }
+
+  const ids = new Set<string>([selectedNodeId]);
+  graph.edges.forEach((edge) => {
+    if (edge.source === selectedNodeId) {
+      ids.add(edge.target);
+    }
+    if (edge.target === selectedNodeId) {
+      ids.add(edge.source);
+    }
+  });
+
+  return graph.nodes.filter((node) => ids.has(node.id));
+}

@@ -1,7 +1,14 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NodePanel } from '../src/components/NodePanel';
 import type { GraphNode } from '../src/types/graph';
+import { summarizeFile } from '../src/api/client';
+
+vi.mock('../src/api/client', () => ({
+  summarizeFile: vi.fn()
+}));
+
+const summarizeMock = vi.mocked(summarizeFile);
 
 const node: GraphNode = {
   id: 'src/main.py',
@@ -18,6 +25,20 @@ const node: GraphNode = {
 };
 
 describe('NodePanel', () => {
+  beforeEach(() => {
+    summarizeMock.mockReset();
+    summarizeMock.mockResolvedValue({
+      file_path: node.path,
+      summary: null,
+      cached: false,
+      disabled: true,
+      requires_generation: false,
+      error: 'Set OPENAI_API_KEY to enable OpenAI summaries.',
+      content_hash: 'hash',
+      model: 'gpt-4.1-mini'
+    });
+  });
+
   it('shows metrics and dependency lists for selected node', () => {
     render(<NodePanel rootPath="/tmp/repo" node={node} />);
     expect(screen.getByText('main.py')).toBeInTheDocument();
@@ -25,7 +46,65 @@ describe('NodePanel', () => {
     expect(screen.getByText('src/utils.py')).toBeInTheDocument();
     expect(screen.getByText('tests/test_main.py')).toBeInTheDocument();
     expect(screen.getByText('os')).toBeInTheDocument();
-    expect(screen.getByLabelText('AI provider')).toBeInTheDocument();
+  });
+
+  it('loads summary state when a node is selected', async () => {
+    render(<NodePanel rootPath="/tmp/repo" node={node} />);
+
+    await waitFor(() => expect(summarizeMock).toHaveBeenCalledWith('/tmp/repo', 'src/main.py', true));
+    expect(await screen.findByText('AI disabled')).toBeInTheDocument();
+    expect(screen.getByText('Set OPENAI_API_KEY to enable OpenAI summaries.')).toBeInTheDocument();
+  });
+
+  it('shows cached summaries without a manual click', async () => {
+    summarizeMock.mockResolvedValue({
+      file_path: node.path,
+      summary: 'Reads command line input and starts the app.',
+      cached: true,
+      disabled: false,
+      requires_generation: false,
+      error: null,
+      content_hash: 'hash',
+      model: 'gpt-4.1-mini'
+    });
+
+    render(<NodePanel rootPath="/tmp/repo" node={node} />);
+
+    expect(await screen.findByText('Cached summary')).toBeInTheDocument();
+    expect(screen.getByText('Reads command line input and starts the app.')).toBeInTheDocument();
+  });
+
+  it('generates a fresh summary from the button when needed', async () => {
+    summarizeMock
+      .mockResolvedValueOnce({
+        file_path: node.path,
+        summary: null,
+        cached: false,
+        disabled: false,
+        requires_generation: true,
+        error: 'No cached summary yet. Generate one to analyze this file.',
+        content_hash: 'hash',
+        model: 'gpt-4.1-mini'
+      })
+      .mockResolvedValueOnce({
+        file_path: node.path,
+        summary: 'Fresh summary text.',
+        cached: false,
+        disabled: false,
+        requires_generation: false,
+        error: null,
+        content_hash: 'hash',
+        model: 'gpt-4.1-mini'
+      });
+
+    render(<NodePanel rootPath="/tmp/repo" node={node} />);
+
+    const button = await screen.findByRole('button', { name: 'Generate summary' });
+    fireEvent.click(button);
+
+    await waitFor(() => expect(summarizeMock).toHaveBeenLastCalledWith('/tmp/repo', 'src/main.py', false));
+    expect(await screen.findByText('Fresh summary')).toBeInTheDocument();
+    expect(screen.getByText('Fresh summary text.')).toBeInTheDocument();
   });
 
   it('shows empty state without a node', () => {

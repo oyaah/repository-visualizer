@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections import Counter
 from dataclasses import dataclass
+from fnmatch import fnmatch
 import os
 from pathlib import Path
 
@@ -87,15 +89,25 @@ class ScanResult:
     ignored_directories: list[str]
     total_files_found: int
     skipped_files: int
+    skipped_reasons: dict[str, int]
     truncated: bool
     warnings: list[str]
+
+
+@dataclass(frozen=True)
+class IgnoreRule:
+    pattern: str
+    directory_only: bool
+    anchored: bool
+    negated: bool
 
 
 def scan_repository(root: Path, options: AnalyzeRequest | None = None) -> ScanResult:
     root = root.resolve()
     options = options or AnalyzeRequest(root_path=str(root))
     ignored_seen: set[str] = set()
-    skipped_files = 0
+    skipped_reasons: Counter[str] = Counter()
+    ignore_rules = load_gitignore_rules(root)
     candidates: list[Path] = []
     files: list[ScannedFile] = []
 
@@ -106,20 +118,32 @@ def scan_repository(root: Path, options: AnalyzeRequest | None = None) -> ScanRe
         if not options.include_tests:
             ignored_names |= TEST_DIRECTORIES
 
-        ignored_here = sorted(set(directory_names) & ignored_names)
-        ignored_seen.update(ignored_here)
-        directory_names[:] = sorted(name for name in directory_names if name not in ignored_names)
+        kept_directories = []
+        for name in sorted(directory_names):
+            relative_dir = (Path(current_root) / name).relative_to(root).as_posix()
+            if name in ignored_names:
+                ignored_seen.add(name)
+                continue
+            if is_gitignored(relative_dir, is_dir=True, rules=ignore_rules):
+                ignored_seen.add(relative_dir)
+                continue
+            kept_directories.append(name)
+        directory_names[:] = kept_directories
 
         for file_name in sorted(file_names):
             path = Path(current_root) / file_name
             if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
                 continue
+            relative_path = path.relative_to(root).as_posix()
+            if is_gitignored(relative_path, is_dir=False, rules=ignore_rules):
+                skipped_reasons["gitignore"] += 1
+                continue
             if should_skip_file(path, root, options):
-                skipped_files += 1
+                skipped_reasons["scan_policy"] += 1
                 continue
             candidates.append(path)
 
-    total_files_found = len(candidates) + skipped_files
+    total_files_found = len(candidates) + sum(skipped_reasons.values())
     truncated = len(candidates) > options.max_files
     selected = candidates[: options.max_files]
 
@@ -128,7 +152,7 @@ def scan_repository(root: Path, options: AnalyzeRequest | None = None) -> ScanRe
             text = path.read_text(encoding="utf-8")
             size_bytes = path.stat().st_size
         except (OSError, UnicodeDecodeError):
-            skipped_files += 1
+            skipped_reasons["unreadable"] += 1
             continue
         relative = path.relative_to(root).as_posix()
         folder = path.relative_to(root).parent.as_posix()
@@ -144,7 +168,7 @@ def scan_repository(root: Path, options: AnalyzeRequest | None = None) -> ScanRe
         )
 
     if truncated:
-        skipped_files += len(candidates) - len(selected)
+        skipped_reasons["max_files"] += len(candidates) - len(selected)
 
     warnings = []
     if truncated:
@@ -158,7 +182,8 @@ def scan_repository(root: Path, options: AnalyzeRequest | None = None) -> ScanRe
         files=files,
         ignored_directories=sorted(ignored_seen),
         total_files_found=total_files_found,
-        skipped_files=skipped_files,
+        skipped_files=sum(skipped_reasons.values()),
+        skipped_reasons=dict(sorted(skipped_reasons.items())),
         truncated=truncated,
         warnings=warnings,
     )
@@ -187,6 +212,49 @@ def is_test_like(parts: set[str], name: str) -> bool:
         return True
     stem = Path(name).stem
     return name.startswith("test_") or stem.endswith("_test") or stem.endswith(".test") or stem.endswith(".spec")
+
+
+def load_gitignore_rules(root: Path) -> list[IgnoreRule]:
+    gitignore = root / ".gitignore"
+    try:
+        lines = gitignore.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+
+    rules: list[IgnoreRule] = []
+    for raw_line in lines:
+        line = raw_line.strip()
+        if not line or line.startswith("#"):
+            continue
+        negated = line.startswith("!")
+        if negated:
+            line = line[1:]
+        directory_only = line.endswith("/")
+        pattern = line.rstrip("/")
+        anchored = pattern.startswith("/")
+        pattern = pattern.lstrip("/")
+        if pattern:
+            rules.append(IgnoreRule(pattern=pattern, directory_only=directory_only, anchored=anchored, negated=negated))
+    return rules
+
+
+def is_gitignored(relative_path: str, is_dir: bool, rules: list[IgnoreRule]) -> bool:
+    normalized = relative_path.strip("/")
+    name = Path(normalized).name
+    ignored = False
+    for rule in rules:
+        if rule.directory_only and not is_dir:
+            continue
+        matches = False
+        if rule.anchored and fnmatch(normalized, rule.pattern):
+            matches = True
+        elif "/" in rule.pattern and fnmatch(normalized, rule.pattern):
+            matches = True
+        elif "/" not in rule.pattern and (fnmatch(name, rule.pattern) or any(fnmatch(part, rule.pattern) for part in normalized.split("/"))):
+            matches = True
+        if matches:
+            ignored = not rule.negated
+    return ignored
 
 
 def calculate_metrics(text: str, size_bytes: int) -> FileMetrics:

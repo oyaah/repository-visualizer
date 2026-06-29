@@ -16,6 +16,11 @@ def test_parse_javascript_imports() -> None:
     assert deps[1].kind == EdgeKind.DYNAMIC_IMPORT
 
 
+def test_parse_javascript_ignores_commented_imports() -> None:
+    deps = parse_javascript_dependencies("// import Hidden from './Hidden';\n/* require('./unused') */\nimport Visible from './Visible';\n")
+    assert [dep.raw for dep in deps] == ["./Visible"]
+
+
 def test_parse_c_includes() -> None:
     deps = parse_c_dependencies('#include "local.h"\n#include <stdio.h>\n')
     assert deps[0].raw == "local.h"

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from enum import Enum
 from pathlib import Path
+from enum import Enum
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -63,6 +63,7 @@ class GraphStats(BaseModel):
     total_files_found: int
     analyzed_files: int
     skipped_files: int
+    skipped_reasons: dict[str, int] = Field(default_factory=dict)
     truncated: bool
     warnings: list[str] = Field(default_factory=list)
 
@@ -78,8 +79,8 @@ class GraphResponse(BaseModel):
 class SummaryRequest(BaseModel):
     root_path: str = Field(..., min_length=1)
     file_path: str = Field(..., min_length=1)
-    provider: str = "openai"
     model: str | None = None
+    cache_only: bool = False
 
     @field_validator("root_path")
     @classmethod
@@ -92,7 +93,7 @@ class SummaryResponse(BaseModel):
     summary: str | None
     cached: bool
     disabled: bool = False
+    requires_generation: bool = False
     error: str | None = None
     content_hash: str | None = None
-    provider: str | None = None
     model: str | None = None

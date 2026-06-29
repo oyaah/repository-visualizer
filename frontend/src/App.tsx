@@ -4,6 +4,7 @@ import { analyzeRepository } from './api/client';
 import { AppShell } from './components/AppShell';
 import { NodePanel } from './components/NodePanel';
 import { RepoPathForm } from './components/RepoPathForm';
+import { RepositoryInsights } from './components/RepositoryInsights';
 import { GraphCanvas } from './graph/GraphCanvas';
 import type { AnalyzeOptions, GraphNode, GraphResponse } from './types/graph';
 
@@ -46,7 +47,10 @@ export function App() {
 
       <main className="workspace">
         <GraphCanvas graph={graph} selectedNodeId={selectedNode?.id ?? null} onSelectNode={setSelectedNode} />
-        <NodePanel rootPath={graph?.root_path ?? ''} node={selectedNode} />
+        <div className="side-stack">
+          <RepositoryInsights graph={graph} onSelectNode={setSelectedNode} />
+          <NodePanel rootPath={graph?.root_path ?? ''} node={selectedNode} />
+        </div>
       </main>
     </AppShell>
   );

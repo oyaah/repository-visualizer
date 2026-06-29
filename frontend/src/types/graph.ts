@@ -39,6 +39,7 @@ export type GraphStats = {
   total_files_found: number;
   analyzed_files: number;
   skipped_files: number;
+  skipped_reasons: Record<string, number>;
   truncated: boolean;
   warnings: string[];
 };
@@ -56,8 +57,8 @@ export type SummaryResponse = {
   summary: string | null;
   cached: boolean;
   disabled: boolean;
+  requires_generation: boolean;
   error: string | null;
   content_hash: string | null;
-  provider: string | null;
   model: string | null;
 };

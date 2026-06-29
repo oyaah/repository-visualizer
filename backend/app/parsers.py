@@ -50,6 +50,10 @@ def parse_python_dependencies(text: str) -> list[Dependency]:
             dots = "." * node.level
             if node.module:
                 deps.append(Dependency(raw=f"{dots}{node.module}", kind=EdgeKind.IMPORT, is_relative=node.level > 0))
+                if node.level == 0:
+                    for alias in node.names:
+                        if alias.name != "*":
+                            deps.append(Dependency(raw=f"{node.module}.{alias.name}", kind=EdgeKind.IMPORT))
             else:
                 for alias in node.names:
                     deps.append(Dependency(raw=f"{dots}{alias.name}", kind=EdgeKind.IMPORT, is_relative=node.level > 0))
@@ -57,6 +61,7 @@ def parse_python_dependencies(text: str) -> list[Dependency]:
 
 
 def parse_javascript_dependencies(text: str) -> list[Dependency]:
+    text = strip_javascript_comments(text)
     deps: list[Dependency] = []
     for pattern in JS_IMPORT_PATTERNS:
         for match in pattern.finditer(text):
@@ -66,6 +71,52 @@ def parse_javascript_dependencies(text: str) -> list[Dependency]:
         raw = match.group(1)
         deps.append(Dependency(raw=raw, kind=EdgeKind.DYNAMIC_IMPORT, is_relative=raw.startswith(".")))
     return deps
+
+
+def strip_javascript_comments(text: str) -> str:
+    output: list[str] = []
+    index = 0
+    quote: str | None = None
+    escaping = False
+    while index < len(text):
+        current = text[index]
+        next_char = text[index + 1] if index + 1 < len(text) else ""
+
+        if quote:
+            output.append(current)
+            if escaping:
+                escaping = False
+            elif current == "\\":
+                escaping = True
+            elif current == quote:
+                quote = None
+            index += 1
+            continue
+
+        if current in {"'", '"', "`"}:
+            quote = current
+            output.append(current)
+            index += 1
+            continue
+
+        if current == "/" and next_char == "/":
+            while index < len(text) and text[index] != "\n":
+                index += 1
+            output.append("\n")
+            continue
+
+        if current == "/" and next_char == "*":
+            index += 2
+            while index + 1 < len(text) and not (text[index] == "*" and text[index + 1] == "/"):
+                output.append("\n" if text[index] == "\n" else " ")
+                index += 1
+            index += 2
+            continue
+
+        output.append(current)
+        index += 1
+
+    return "".join(output)
 
 
 def parse_c_dependencies(text: str) -> list[Dependency]:

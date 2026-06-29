@@ -19,10 +19,10 @@ export function analyzeRepository(rootPath: string, options: AnalyzeOptions): Pr
   return postJson<GraphResponse>('/api/analyze', { root_path: rootPath, ...options });
 }
 
-export function summarizeFile(rootPath: string, filePath: string, provider = 'openai'): Promise<SummaryResponse> {
+export function summarizeFile(rootPath: string, filePath: string, cacheOnly = false): Promise<SummaryResponse> {
   return postJson<SummaryResponse>('/api/summarize', {
     root_path: rootPath,
     file_path: filePath,
-    provider
+    cache_only: cacheOnly
   });
 }
