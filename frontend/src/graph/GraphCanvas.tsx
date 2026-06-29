@@ -60,11 +60,7 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
     [savedLayout, visibleGraph]
   );
   const flowEdges = useMemo(() => toFlowEdges(visibleGraph.edges), [visibleGraph]);
-  const [nodes, setNodes, onNodesChange] = useNodesState(flowNodes);
-  const [edges, setEdges, onEdgesChange] = useEdgesState(flowEdges);
-
-  useEffect(() => setNodes(flowNodes), [flowNodes, setNodes]);
-  useEffect(() => setEdges(flowEdges), [flowEdges, setEdges]);
+  const flowKey = `${graph?.root_path ?? ''}:${graphMode}:${extension}:${folder}:${query}:${selectedNodeId ?? ''}:${layoutVersion}`;
   useEffect(() => {
     if (!graph) {
       return;
@@ -147,21 +143,49 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
           {graph.stats.warnings.join(' ')}
         </div>
       ) : null}
-      <ReactFlow
-        nodes={nodes.map((node) => ({ ...node, selected: node.id === selectedNodeId }))}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeDragStop={(_, node: FlowNode) => saveNodeLayout(graph.root_path, graph.nodes, node.id, node.position)}
-        onNodeClick={(_, node) => onSelectNode(node.data as GraphNode)}
-        fitView
-      >
-        <Background />
-        <MiniMap pannable zoomable />
-        <Controls />
-      </ReactFlow>
+      <FlowGraph
+        key={flowKey}
+        graph={graph}
+        flowNodes={flowNodes}
+        flowEdges={flowEdges}
+        selectedNodeId={selectedNodeId}
+        onSelectNode={onSelectNode}
+      />
     </section>
+  );
+}
+
+function FlowGraph({
+  graph,
+  flowNodes,
+  flowEdges,
+  selectedNodeId,
+  onSelectNode
+}: {
+  graph: GraphResponse;
+  flowNodes: FlowNode[];
+  flowEdges: ReturnType<typeof toFlowEdges>;
+  selectedNodeId: string | null;
+  onSelectNode: (node: GraphNode | null) => void;
+}) {
+  const [nodes, , onNodesChange] = useNodesState(flowNodes);
+  const [edges, , onEdgesChange] = useEdgesState(flowEdges);
+
+  return (
+    <ReactFlow
+      nodes={nodes.map((node) => ({ ...node, selected: node.id === selectedNodeId }))}
+      edges={edges}
+      nodeTypes={nodeTypes}
+      onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onNodeDragStop={(_, node: FlowNode) => saveNodeLayout(graph.root_path, graph.nodes, node.id, node.position)}
+      onNodeClick={(_, node) => onSelectNode(node.data as GraphNode)}
+      fitView
+    >
+      <Background />
+      <MiniMap pannable zoomable />
+      <Controls />
+    </ReactFlow>
   );
 }
 

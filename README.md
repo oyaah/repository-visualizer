@@ -2,6 +2,8 @@
 
 Local codebase map for onboarding, refactoring, and spotting bloated files.
 
+![FastAPI repository graph filtered to the routing neighborhood](docs/assets/fastapi-run.jpg)
+
 ## What ships in the MVP
 
 - FastAPI backend that scans local directories without executing target code.

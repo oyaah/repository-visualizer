@@ -168,6 +168,9 @@ h1 {
 
 .graph-panel {
   position: relative;
+  align-self: start;
+  height: calc(100vh - 170px);
+  min-height: 640px;
   overflow: hidden;
 }
 
