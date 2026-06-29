@@ -185,7 +185,7 @@ The product should keep the current simple request/response analysis path. The i
 
 ## Acceptance Examples
 
-- AE1. After scanning a repo, clicking a node shows metrics and immediately shows either a cached summary, disabled provider guidance, loading state, or an error state.
+- AE1. After scanning a repo, clicking a node shows metrics and immediately shows either a cached summary, disabled OpenAI guidance, loading state, or an error state.
 - AE2. A reviewer can scan the sample repo, click a hotspot insight, see the matching node selected, switch to neighborhood mode, and understand its direct dependencies.
 - AE3. A user drags nodes into a custom layout, reloads the app, rescans the same repo, and sees the custom positions restored.
 - AE4. A fresh clone can run documented tests and start the app without guessing backend/frontend setup.

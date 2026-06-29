@@ -5,11 +5,6 @@ export type StoredLayout = Record<string, XYPosition>;
 
 const PREFIX = 'repository-visualizer:layout:';
 
-export function applySavedLayout(flowNodes: FlowNode[], rootPath: string, graphNodes: GraphNode[]): FlowNode[] {
-  const layout = readSavedLayout(rootPath, graphNodes);
-  return applyLayout(flowNodes, layout);
-}
-
 export function applyLayout(flowNodes: FlowNode[], layout: StoredLayout): FlowNode[] {
   if (!Object.keys(layout).length) {
     return flowNodes;

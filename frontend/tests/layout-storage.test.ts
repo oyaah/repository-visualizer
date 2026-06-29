@@ -1,6 +1,6 @@
 import type { Node as FlowNode } from '@xyflow/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { applySavedLayout, clearSavedLayout, saveNodeLayout, storageKey } from '../src/utils/layoutStorage';
+import { applyLayout, clearSavedLayout, readSavedLayout, saveNodeLayout, storageKey } from '../src/utils/layoutStorage';
 import type { GraphNode } from '../src/types/graph';
 
 const graphNodes: GraphNode[] = [
@@ -31,7 +31,7 @@ describe('layoutStorage', () => {
   it('saves and reapplies a node position', () => {
     saveNodeLayout('/tmp/repo', graphNodes, 'src/main.py', { x: 42, y: 84 });
 
-    const restored = applySavedLayout(flowNodes, '/tmp/repo', graphNodes);
+    const restored = applyLayout(flowNodes, readSavedLayout('/tmp/repo', graphNodes));
 
     expect(restored[0].position).toEqual({ x: 42, y: 84 });
     expect(restored[1].position).toEqual({ x: 100, y: 50 });
@@ -41,7 +41,7 @@ describe('layoutStorage', () => {
     saveNodeLayout('/tmp/repo', graphNodes, 'src/main.py', { x: 42, y: 84 });
     clearSavedLayout('/tmp/repo', graphNodes);
 
-    expect(applySavedLayout(flowNodes, '/tmp/repo', graphNodes)[0].position).toEqual({ x: 0, y: 0 });
+    expect(applyLayout(flowNodes, readSavedLayout('/tmp/repo', graphNodes))[0].position).toEqual({ x: 0, y: 0 });
   });
 
   it('keys layouts by repository and graph shape', () => {

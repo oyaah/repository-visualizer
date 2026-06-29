@@ -29,7 +29,6 @@ class SummaryCache:
                   file_path TEXT NOT NULL,
                   content_hash TEXT NOT NULL,
                   prompt_version TEXT NOT NULL,
-                  provider TEXT NOT NULL,
                   model TEXT NOT NULL,
                   summary TEXT NOT NULL,
                   created_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -52,8 +51,8 @@ class SummaryCache:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO summaries
-                  (key, file_path, content_hash, prompt_version, provider, model, summary)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                  (key, file_path, content_hash, prompt_version, model, summary)
+                VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (key, file_path, content_hash, prompt_version, "openai", model, summary),
+                (key, file_path, content_hash, prompt_version, model, summary),
             )
