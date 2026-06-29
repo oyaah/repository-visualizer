@@ -42,7 +42,8 @@ const graph: GraphResponse = {
   nodes: [
     node('src/main.py', { loc: 50, complexity: 4, dependent_count: 3 }),
     node('src/complex.py', { loc: 20, complexity: 12, dependent_count: 1 }, { unresolved_imports: ['.missing'] }),
-    node('src/large.py', { loc: 120, complexity: 2, dependent_count: 0 })
+    node('src/large.py', { loc: 120, complexity: 2, dependent_count: 0 }),
+    node('tests/test_large.py', { loc: 200, complexity: 1, dependent_count: 0 })
   ],
   edges: [
     { id: 'e1', source: 'src/main.py', target: 'src/complex.py', kind: 'import', label: 'import' },
@@ -54,9 +55,16 @@ describe('RepositoryInsights', () => {
   it('ranks repository hotspots and scan stats', () => {
     render(<RepositoryInsights graph={graph} onSelectNode={() => undefined} />);
 
-    expect(screen.getByText('3 files')).toBeInTheDocument();
+    expect(screen.getByText('4 files')).toBeInTheDocument();
     expect(screen.getByText('Edges')).toBeInTheDocument();
     expect(screen.getByText('Skipped')).toBeInTheDocument();
+    expect(screen.getByText('Top folders')).toBeInTheDocument();
+    expect(screen.getByText('src')).toBeInTheDocument();
+    expect(screen.getByText('190 LoC / 3 files')).toBeInTheDocument();
+    expect(screen.getByText('tests')).toBeInTheDocument();
+    expect(screen.getByText('200 LoC / 1 file')).toBeInTheDocument();
+    expect(screen.getAllByText('tests/test_large.py').length).toBeGreaterThan(0);
+    expect(screen.getByText('200 LoC')).toBeInTheDocument();
     expect(screen.getAllByText('src/large.py').length).toBeGreaterThan(0);
     expect(screen.getByText('120 LoC')).toBeInTheDocument();
     expect(screen.getAllByText('src/complex.py').length).toBeGreaterThan(0);

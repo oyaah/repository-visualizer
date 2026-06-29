@@ -107,6 +107,17 @@ describe('GraphCanvas', () => {
     expect(screen.getByText('utils.py')).toBeInTheDocument();
   });
 
+  it('filters graph nodes by top folder', () => {
+    render(<GraphCanvas graph={graphWithOrphan} selectedNodeId={null} onSelectNode={() => undefined} />);
+
+    fireEvent.change(screen.getByLabelText('Filter graph by folder'), { target: { value: 'docs' } });
+
+    expect(screen.getByText('1 of 3 files')).toBeInTheDocument();
+    expect(screen.queryByText('main.py')).not.toBeInTheDocument();
+    expect(screen.queryByText('utils.py')).not.toBeInTheDocument();
+    expect(screen.getByText('readme.md')).toBeInTheDocument();
+  });
+
   it('shows only one-hop related files in neighborhood mode', () => {
     render(<GraphCanvas graph={graphWithOrphan} selectedNodeId="src/main.py" onSelectNode={() => undefined} />);
 

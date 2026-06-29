@@ -26,10 +26,15 @@ type Props = {
 export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
   const [query, setQuery] = useState('');
   const [extension, setExtension] = useState('all');
+  const [folder, setFolder] = useState('all');
   const [graphMode, setGraphMode] = useState<GraphMode>('all');
   const [layoutVersion, setLayoutVersion] = useState(0);
   const extensions = useMemo(() => {
     const values = new Set((graph?.nodes ?? []).map((node) => node.extension || 'file'));
+    return Array.from(values).sort();
+  }, [graph]);
+  const folders = useMemo(() => {
+    const values = new Set((graph?.nodes ?? []).map((node) => topFolder(node.path)));
     return Array.from(values).sort();
   }, [graph]);
   const visibleGraph = useMemo(() => {
@@ -42,12 +47,13 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
         node.label.toLowerCase().includes(normalizedQuery) ||
         node.folder.toLowerCase().includes(normalizedQuery);
       const matchesExtension = extension === 'all' || node.extension === extension;
-      return matchesQuery && matchesExtension;
+      const matchesFolder = folder === 'all' || topFolder(node.path) === folder;
+      return matchesQuery && matchesExtension && matchesFolder;
     });
     const visibleIds = new Set(nodes.map((node) => node.id));
     const edges = (graph?.edges ?? []).filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
     return { nodes, edges };
-  }, [extension, graph, graphMode, query, selectedNodeId]);
+  }, [extension, folder, graph, graphMode, query, selectedNodeId]);
   const savedLayout = useMemo(() => readSavedLayout(graph?.root_path ?? '', graph?.nodes ?? []), [graph?.nodes, graph?.root_path, layoutVersion]);
   const flowNodes = useMemo(
     () => applyLayout(toFlowNodes(visibleGraph.nodes, visibleGraph.edges), savedLayout),
@@ -125,6 +131,15 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
             ))}
           </select>
         </label>
+        <label className="graph-filter compact">
+          Folder
+          <select value={folder} onChange={(event) => setFolder(event.target.value)} aria-label="Filter graph by folder">
+            <option value="all">All</option>
+            {folders.map((value) => (
+              <option key={value} value={value}>{value}</option>
+            ))}
+          </select>
+        </label>
         {graph.stats.truncated ? <span className="warning-pill">Limited scan</span> : null}
       </div>
       {graph.stats.warnings.length ? (
@@ -195,4 +210,8 @@ function nodesForMode(graph: GraphResponse | null, graphMode: GraphMode, selecte
   });
 
   return graph.nodes.filter((node) => ids.has(node.id));
+}
+
+function topFolder(path: string): string {
+  return path.includes('/') ? path.split('/')[0] : 'root';
 }

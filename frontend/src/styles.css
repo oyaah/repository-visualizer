@@ -379,7 +379,8 @@ h1 {
   list-style: none;
 }
 
-.insight-section button {
+.insight-section button,
+.folder-insight-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 8px;
@@ -396,7 +397,8 @@ h1 {
   border-color: var(--accent);
 }
 
-.insight-section button span {
+.insight-section button span,
+.folder-insight-row span {
   overflow: hidden;
   color: var(--ink-soft);
   font-size: 12px;
@@ -404,7 +406,8 @@ h1 {
   white-space: nowrap;
 }
 
-.insight-section button strong {
+.insight-section button strong,
+.folder-insight-row strong {
   font-size: 12px;
 }
 
