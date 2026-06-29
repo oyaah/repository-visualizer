@@ -6,17 +6,21 @@ Local codebase map for onboarding, refactoring, and spotting bloated files.
 
 ## How it helps
 
-Start with the right-side **Start here** queue, not the whole graph. It ranks the first files worth inspecting: dependency cycles, bloated files, high-complexity files, broken imports, and dependency hubs.
+Start with the right-side **Start here** queue, not the whole graph. It ranks the first files worth inspecting: dependency cycles, bloated files, high-complexity files, broken imports, and dependency hubs. The same report also calls out likely entry points and a reading order for onboarding.
 
-Then switch the graph to **Neighborhood** mode on that file. That turns a tangled repository map into the local context around one risky file, which is usually what you need for onboarding or refactoring.
+Then click a risky file. The side panel shows local dependencies, who imports it, second-order change impact, and likely affected tests. Switch the graph to **Neighborhood** mode on that file when the full map gets noisy.
+
+Export the Markdown report when you need to hand the analysis to a teammate, paste it into notes, or keep a snapshot before a refactor.
 
 ## What it does
 
 - FastAPI backend that scans local directories without executing target code.
 - Static dependency extraction for Python, JavaScript/TypeScript, and C/C++ includes, with support for root `.gitignore`, Python `src/` layouts, and TypeScript path aliases.
 - React Flow canvas with draggable nodes, zoom, pan, search/type filters, full/neighborhood graph modes, persisted browser layouts, and an inspector panel.
-- Repository insights panel with ranked "Start here" actions, largest files, complexity hotspots, dependency hubs, unresolved references, skipped-file counts, and truncation warnings.
-- AI file explanations with OpenAI, cached by file-content hash.
+- Repository insights panel with ranked "Start here" actions, likely entry points, reading order, largest files, complexity hotspots, dependency hubs, unresolved references, skipped-file counts, and truncation warnings.
+- Selected-file blast radius showing direct dependents, second-order dependents, and likely affected tests.
+- Markdown report export for sharing the useful analysis outside the app.
+- AI file explanations with OpenAI, cached by file-content hash and prompt version.
 
 ## Run the backend
 

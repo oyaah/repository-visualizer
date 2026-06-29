@@ -1,16 +1,18 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Brain, FileCode2, Loader2 } from 'lucide-react';
 import { summarizeFile } from '../api/client';
-import type { GraphNode, SummaryResponse } from '../types/graph';
+import type { GraphNode, GraphResponse, SummaryResponse } from '../types/graph';
 
 type Props = {
   rootPath: string;
   node: GraphNode | null;
+  graph: GraphResponse | null;
 };
 
-export function NodePanel({ rootPath, node }: Props) {
+export function NodePanel({ rootPath, node, graph }: Props) {
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const impact = useMemo(() => (node && graph ? buildImpact(graph, node) : null), [graph, node]);
 
   useEffect(() => {
     if (!node || !rootPath) {
@@ -85,6 +87,14 @@ export function NodePanel({ rootPath, node }: Props) {
 
       <Section title="Dependencies" items={node.imports} fallback="No local dependencies." />
       <Section title="Dependents" items={node.imported_by} fallback="No local dependents." />
+      {impact ? (
+        <section className="panel-section impact-section">
+          <h3>Change impact</h3>
+          <ImpactRow label="Direct" items={impact.directDependents} fallback="No direct dependents." />
+          <ImpactRow label="Second order" items={impact.secondOrderDependents} fallback="No second-order dependents." />
+          <ImpactRow label="Likely tests" items={impact.likelyTests} fallback="No affected tests found in the graph." />
+        </section>
+      ) : null}
       <Section title="External / unresolved" items={[...node.external_imports, ...node.unresolved_imports]} fallback="No unresolved imports." />
 
       <div className="summary-box">
@@ -101,6 +111,31 @@ export function NodePanel({ rootPath, node }: Props) {
       </div>
     </aside>
   );
+}
+
+function buildImpact(graph: GraphResponse, node: GraphNode) {
+  const nodeById = new Map(graph.nodes.map((item) => [item.id, item]));
+  const directDependents = unique(node.imported_by);
+  const directSet = new Set(directDependents);
+  const secondOrderDependents = unique(
+    directDependents.flatMap((path) => nodeById.get(path)?.imported_by ?? [])
+  ).filter((path) => path !== node.id && !directSet.has(path));
+  const likelyTests = unique([...directDependents, ...secondOrderDependents].filter(isTestPath));
+
+  return {
+    directDependents,
+    secondOrderDependents,
+    likelyTests
+  };
+}
+
+function unique(items: string[]): string[] {
+  return [...new Set(items)].sort();
+}
+
+function isTestPath(path: string): boolean {
+  const lower = path.toLowerCase();
+  return /(^|\/)(__tests__|tests?|specs?)(\/|$)/.test(lower) || /(^|[._-])(test|spec)\.[jt]sx?$/.test(lower) || lower.startsWith('test_');
 }
 
 function errorSummary(filePath: string, err: unknown): SummaryResponse {
@@ -139,5 +174,22 @@ function Section({ title, items, fallback }: { title: string; items: string[]; f
         <p>{fallback}</p>
       )}
     </section>
+  );
+}
+
+function ImpactRow({ label, items, fallback }: { label: string; items: string[]; fallback: string }) {
+  return (
+    <div className="impact-row">
+      <strong>{label}</strong>
+      {items.length ? (
+        <ul>
+          {items.slice(0, 5).map((item) => (
+            <li key={item}>{item}</li>
+          ))}
+        </ul>
+      ) : (
+        <p>{fallback}</p>
+      )}
+    </div>
   );
 }

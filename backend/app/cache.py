@@ -28,6 +28,7 @@ class SummaryCache:
                   key TEXT PRIMARY KEY,
                   file_path TEXT NOT NULL,
                   content_hash TEXT NOT NULL,
+                  provider TEXT NOT NULL DEFAULT 'openai',
                   prompt_version TEXT NOT NULL,
                   model TEXT NOT NULL,
                   summary TEXT NOT NULL,
@@ -35,6 +36,9 @@ class SummaryCache:
                 )
                 """
             )
+            columns = {row[1] for row in conn.execute("PRAGMA table_info(summaries)")}
+            if "provider" not in columns:
+                conn.execute("ALTER TABLE summaries ADD COLUMN provider TEXT NOT NULL DEFAULT 'openai'")
 
     def get(self, key: str) -> CacheEntry | None:
         with self._connect() as conn:
@@ -46,13 +50,13 @@ class SummaryCache:
             return None
         return CacheEntry(summary=row[0], content_hash=row[1], model=row[2])
 
-    def set(self, key: str, file_path: str, content_hash: str, prompt_version: str, model: str, summary: str) -> None:
+    def set(self, key: str, file_path: str, content_hash: str, prompt_version: str, model: str, summary: str, provider: str = "openai") -> None:
         with self._connect() as conn:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO summaries
-                  (key, file_path, content_hash, prompt_version, model, summary)
-                VALUES (?, ?, ?, ?, ?, ?)
+                  (key, file_path, content_hash, provider, prompt_version, model, summary)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (key, file_path, content_hash, prompt_version, model, summary),
+                (key, file_path, content_hash, provider, prompt_version, model, summary),
             )

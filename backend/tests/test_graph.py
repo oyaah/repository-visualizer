@@ -142,3 +142,36 @@ def test_graph_includes_scan_metadata(tmp_path: Path) -> None:
     assert graph.stats.skipped_files == 1
     assert graph.stats.truncated is True
     assert graph.stats.warnings
+
+
+def test_graph_returns_actionable_repo_report(tmp_path: Path) -> None:
+    (tmp_path / "a.py").write_text("import b\nfrom .missing import thing\n", encoding="utf-8")
+    (tmp_path / "b.py").write_text("import a\n", encoding="utf-8")
+    (tmp_path / "shared.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tmp_path / "one.py").write_text("import shared\n", encoding="utf-8")
+    (tmp_path / "two.py").write_text("import shared\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    findings = {(finding.kind, finding.file_path) for finding in graph.repo_report.start_here}
+    assert ("cycle", "a.py") in findings
+    assert ("unresolved_import", "a.py") in findings
+    assert ("hub", "shared.py") in findings
+    assert graph.repo_report.reading_order[0] in {"a.py", "shared.py"}
+
+
+def test_graph_detects_likely_entry_points(tmp_path: Path) -> None:
+    (tmp_path / "api.py").write_text("from fastapi import FastAPI\napp = FastAPI()\n", encoding="utf-8")
+    (tmp_path / "cli.py").write_text('if __name__ == "__main__":\n    print("ok")\n', encoding="utf-8")
+    (tmp_path / "App.tsx").write_text("import { createRoot } from 'react-dom/client';\ncreateRoot(root).render(null);\n", encoding="utf-8")
+    (tmp_path / "main.c").write_text("int main(void) { return 0; }\n", encoding="utf-8")
+    (tmp_path / "util.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    entries = {(entry.kind, entry.file_path) for entry in graph.repo_report.entry_points}
+    assert ("python_web", "api.py") in entries
+    assert ("python_cli", "cli.py") in entries
+    assert ("react_root", "App.tsx") in entries
+    assert ("native_main", "main.c") in entries
+    assert all(entry.file_path != "util.py" for entry in graph.repo_report.entry_points)

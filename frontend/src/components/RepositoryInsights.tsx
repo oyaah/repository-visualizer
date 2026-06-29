@@ -1,25 +1,12 @@
-import { AlertTriangle, BarChart3, GitMerge, ListTree } from 'lucide-react';
+import { AlertTriangle, BarChart3, Download, GitMerge, ListTree, Play } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import type { CycleSummary, FolderSummary, GraphNode, GraphResponse } from '../types/graph';
+import type { CycleSummary, EntryPointSummary, FolderSummary, GraphNode, GraphResponse, ReportFinding } from '../types/graph';
+import { downloadMarkdownReport } from '../utils/reportExport';
 
 type Props = {
   graph: GraphResponse | null;
   onSelectNode: (node: GraphNode) => void;
-};
-
-type PriorityInsight = {
-  id: string;
-  title: string;
-  detail: string;
-  node: GraphNode;
-};
-
-type InsightBuckets = {
-  largest: GraphNode[];
-  complex: GraphNode[];
-  hubs: GraphNode[];
-  unresolved: GraphNode[];
 };
 
 export function RepositoryInsights({ graph, onSelectNode }: Props) {
@@ -41,15 +28,22 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
           <span className="path-label">repository</span>
           <h2>Insights</h2>
         </div>
-        <span>{graph.nodes.length} files</span>
+        <div className="insights-actions">
+          <button type="button" onClick={() => downloadMarkdownReport(graph)} aria-label="Export Markdown report">
+            <Download size={15} />
+          </button>
+          <span>{graph.nodes.length} files</span>
+        </div>
       </div>
       <div className="insights-stats">
         <Stat label="Edges" value={graph.edges.length} />
         <Stat label="Skipped" value={graph.stats.skipped_files} />
       </div>
-      <StartHere items={insights?.priorities ?? []} onSelectNode={onSelectNode} />
+      <StartHere items={insights?.startHere ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
+      <EntryPointList entries={insights?.entryPoints ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
+      <ReadingOrder paths={insights?.readingOrder ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <FolderList folders={insights?.folders ?? []} />
-      <CycleList cycles={insights?.cycles ?? []} nodes={graph.nodes} onSelectNode={onSelectNode} />
+      <CycleList cycles={insights?.cycles ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <InsightList title="Largest files" icon={<ListTree size={15} />} items={insights?.largest ?? []} valueFor={(node) => `${node.metrics.loc} LoC`} onSelectNode={onSelectNode} />
       <InsightList title="Complexity" icon={<BarChart3 size={15} />} items={insights?.complex ?? []} valueFor={(node) => `Cx ${node.metrics.complexity}`} onSelectNode={onSelectNode} />
       <InsightList title="Dependency hubs" icon={<GitMerge size={15} />} items={insights?.hubs ?? []} valueFor={(node) => `${node.metrics.dependent_count} uses`} onSelectNode={onSelectNode} />
@@ -79,50 +73,21 @@ function buildInsights(graph: GraphResponse) {
   const hubs = topBy(graph.nodes, (node) => node.metrics.dependent_count);
   const unresolved = topBy(graph.nodes, (node) => node.unresolved_imports.length);
   const cycles = graph.cycles.slice(0, 3);
+  const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
 
   return {
+    nodeById,
+    startHere: graph.repo_report.start_here.slice(0, 4),
+    entryPoints: graph.repo_report.entry_points.slice(0, 4),
+    readingOrder: graph.repo_report.reading_order.slice(0, 6),
     folders: graph.folder_summaries.slice(0, 3),
     cycles,
-    priorities: buildPriorityInsights(graph.nodes, cycles, { largest, complex, hubs, unresolved }),
     largest,
     complex,
     hubs,
     unresolved,
     external: topBy(graph.nodes, (node) => node.external_imports.length)
   };
-}
-
-function buildPriorityInsights(
-  nodes: GraphNode[],
-  cycles: CycleSummary[],
-  lists: InsightBuckets
-): PriorityInsight[] {
-  const priorities: PriorityInsight[] = [];
-  const add = (item: Omit<PriorityInsight, 'id'>) => {
-    if (priorities.length === 3) {
-      return;
-    }
-    priorities.push({ ...item, id: `${item.title}:${item.node.id}` });
-  };
-
-  const cycle = cycles[0];
-  const cycleNode = cycle ? nodes.find((node) => node.id === cycle.files[0]) : undefined;
-  if (cycle && cycleNode) {
-    add({ title: 'Break import cycle', detail: `${cycle.files.length} files / ${cycle.edge_count} edges`, node: cycleNode });
-  }
-  if (lists.unresolved[0]) {
-    add({ title: 'Fix unresolved import', detail: `${lists.unresolved[0].path} - ${lists.unresolved[0].unresolved_imports.length} refs`, node: lists.unresolved[0] });
-  }
-  if (lists.largest[0]) {
-    add({ title: 'Review largest file', detail: `${lists.largest[0].path} - ${lists.largest[0].metrics.loc} LoC`, node: lists.largest[0] });
-  }
-  if (lists.complex[0]) {
-    add({ title: 'Simplify complex file', detail: `${lists.complex[0].path} - Cx ${lists.complex[0].metrics.complexity}`, node: lists.complex[0] });
-  }
-  if (lists.hubs[0]) {
-    add({ title: 'Inspect dependency hub', detail: `${lists.hubs[0].path} - ${lists.hubs[0].metrics.dependent_count} uses`, node: lists.hubs[0] });
-  }
-  return priorities;
 }
 
 function topBy(nodes: GraphNode[], score: (node: GraphNode) => number): GraphNode[] {
@@ -141,25 +106,103 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function StartHere({ items, onSelectNode }: { items: PriorityInsight[]; onSelectNode: (node: GraphNode) => void }) {
+function StartHere({
+  items,
+  nodeById,
+  onSelectNode
+}: {
+  items: ReportFinding[];
+  nodeById: Map<string, GraphNode>;
+  onSelectNode: (node: GraphNode) => void;
+}) {
   return (
     <section className="insight-section start-here">
       <h3><AlertTriangle size={15} />Start here</h3>
       {items.length ? (
         <ol>
-          {items.map((item) => (
-            <li key={item.id}>
-              <button type="button" onClick={() => onSelectNode(item.node)}>
-                <span>
-                  <b>{item.title}</b>
-                  {item.detail}
-                </span>
-              </button>
-            </li>
-          ))}
+          {items.map((item) => {
+            const node = nodeById.get(item.file_path);
+            return (
+              <li key={`${item.kind}:${item.file_path}`}>
+                <button type="button" onClick={() => node && onSelectNode(node)}>
+                  <span>
+                    <b>{item.title}</b>
+                    <em>{item.file_path}</em>
+                    {item.detail}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ol>
       ) : (
         <p>No obvious hotspots in analyzed files.</p>
+      )}
+    </section>
+  );
+}
+
+function EntryPointList({
+  entries,
+  nodeById,
+  onSelectNode
+}: {
+  entries: EntryPointSummary[];
+  nodeById: Map<string, GraphNode>;
+  onSelectNode: (node: GraphNode) => void;
+}) {
+  return (
+    <section className="insight-section">
+      <h3><Play size={15} />Likely entry points</h3>
+      {entries.length ? (
+        <ol>
+          {entries.map((entry) => {
+            const node = nodeById.get(entry.file_path);
+            return (
+              <li key={`${entry.kind}:${entry.file_path}`}>
+                <button type="button" onClick={() => node && onSelectNode(node)}>
+                  <span>{entry.file_path}</span>
+                  <strong>{entry.label}</strong>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p>No likely entry points found in analyzed files.</p>
+      )}
+    </section>
+  );
+}
+
+function ReadingOrder({
+  paths,
+  nodeById,
+  onSelectNode
+}: {
+  paths: string[];
+  nodeById: Map<string, GraphNode>;
+  onSelectNode: (node: GraphNode) => void;
+}) {
+  return (
+    <section className="insight-section">
+      <h3><ListTree size={15} />Reading order</h3>
+      {paths.length ? (
+        <ol>
+          {paths.map((path, index) => {
+            const node = nodeById.get(path);
+            return (
+              <li key={path}>
+                <button type="button" onClick={() => node && onSelectNode(node)}>
+                  <span>{path}</span>
+                  <strong>{index + 1}</strong>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p>No reading order generated.</p>
       )}
     </section>
   );
@@ -225,11 +268,11 @@ function FolderList({ folders }: { folders: FolderSummary[] }) {
 
 function CycleList({
   cycles,
-  nodes,
+  nodeById,
   onSelectNode
 }: {
   cycles: CycleSummary[];
-  nodes: GraphNode[];
+  nodeById: Map<string, GraphNode>;
   onSelectNode: (node: GraphNode) => void;
 }) {
   return (
@@ -238,7 +281,7 @@ function CycleList({
       {cycles.length ? (
         <ol>
           {cycles.map((cycle) => {
-            const firstNode = nodes.find((node) => node.id === cycle.files[0]);
+            const firstNode = nodeById.get(cycle.files[0]);
             return (
               <li key={cycle.files.join('|')}>
                 <button type="button" onClick={() => firstNode && onSelectNode(firstNode)}>

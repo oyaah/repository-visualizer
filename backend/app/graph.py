@@ -4,18 +4,22 @@ from collections import defaultdict
 from dataclasses import dataclass
 import json
 import posixpath
+import re
 from pathlib import Path
 
 from app.models import (
     AnalyzeRequest,
     CycleSummary,
     EdgeKind,
+    EntryPointSummary,
     FileMetrics,
     FolderSummary,
     GraphEdge,
     GraphNode,
     GraphResponse,
     GraphStats,
+    RepoReport,
+    ReportFinding,
 )
 from app.parsers import Dependency, parse_dependencies
 from app.scanner import ScannedFile, scan_repository
@@ -85,13 +89,16 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
 
     sorted_nodes = sorted(nodes.values(), key=lambda node: node.path)
     sorted_edges = sorted(edges, key=lambda edge: edge.id)
+    folder_summaries = build_folder_summaries(sorted_nodes)
+    cycles = find_cycles(sorted_nodes, sorted_edges)
 
     return GraphResponse(
         root_path=str(root.resolve()),
         nodes=sorted_nodes,
         edges=sorted_edges,
-        folder_summaries=build_folder_summaries(sorted_nodes),
-        cycles=find_cycles(sorted_nodes, sorted_edges),
+        folder_summaries=folder_summaries,
+        cycles=cycles,
+        repo_report=build_repo_report(sorted_nodes, cycles, scanned_files),
         ignored_directories=scan_result.ignored_directories,
         stats=GraphStats(
             total_files_found=scan_result.total_files_found,
@@ -102,6 +109,127 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
             warnings=scan_result.warnings,
         ),
     )
+
+
+def build_repo_report(nodes: list[GraphNode], cycles: list[CycleSummary], scanned_files: list[ScannedFile]) -> RepoReport:
+    findings: list[ReportFinding] = []
+
+    for cycle in cycles[:2]:
+        findings.append(
+            ReportFinding(
+                kind="cycle",
+                title="Dependency cycle",
+                file_path=cycle.files[0],
+                detail=f"{len(cycle.files)} files import each other; change these carefully.",
+                severity="high",
+                related_files=cycle.files,
+            )
+        )
+
+    unresolved = sorted(
+        (node for node in nodes if node.unresolved_imports),
+        key=lambda node: (-len(node.unresolved_imports), node.path),
+    )
+    for node in unresolved[:2]:
+        findings.append(
+            ReportFinding(
+                kind="unresolved_import",
+                title="Unresolved local import",
+                file_path=node.path,
+                detail=f"{len(node.unresolved_imports)} relative imports could not be mapped.",
+                severity="medium",
+                related_files=node.unresolved_imports,
+            )
+        )
+
+    largest = sorted(nodes, key=lambda node: (-node.metrics.loc, node.path))[:1]
+    for node in largest:
+        if node.metrics.loc >= 80:
+            findings.append(
+                ReportFinding(
+                    kind="large_file",
+                    title="Large file",
+                    file_path=node.path,
+                    detail=f"{node.metrics.loc} lines of code; read this early before changing nearby modules.",
+                    severity="medium",
+                )
+            )
+
+    complex_nodes = sorted(nodes, key=lambda node: (-node.metrics.complexity, node.path))[:1]
+    for node in complex_nodes:
+        if node.metrics.complexity >= 8:
+            findings.append(
+                ReportFinding(
+                    kind="complex_file",
+                    title="High branch complexity",
+                    file_path=node.path,
+                    detail=f"Complexity score {node.metrics.complexity}; likely to hide edge cases.",
+                    severity="medium",
+                )
+            )
+
+    hubs = sorted(nodes, key=lambda node: (-node.metrics.dependent_count, node.path))[:2]
+    for node in hubs:
+        if node.metrics.dependent_count >= 2:
+            findings.append(
+                ReportFinding(
+                    kind="hub",
+                    title="High impact dependency",
+                    file_path=node.path,
+                    detail=f"{node.metrics.dependent_count} files import this file.",
+                    severity="medium",
+                    related_files=node.imported_by[:8],
+                )
+            )
+
+    findings = dedupe_findings(findings)[:6]
+    entry_points = find_entry_points(scanned_files)
+    reading_order = list(
+        dict.fromkeys(
+            [entry.file_path for entry in entry_points]
+            + [finding.file_path for finding in findings]
+            + [node.path for node in sorted(nodes, key=lambda item: (-item.metrics.dependent_count, item.path))[:3]]
+        )
+    )
+    return RepoReport(start_here=findings, entry_points=entry_points[:8], reading_order=reading_order[:12])
+
+
+def dedupe_findings(findings: list[ReportFinding]) -> list[ReportFinding]:
+    seen: set[tuple[str, str]] = set()
+    deduped = []
+    for finding in findings:
+        key = (finding.kind, finding.file_path)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(finding)
+    return deduped
+
+
+def find_entry_points(files: list[ScannedFile]) -> list[EntryPointSummary]:
+    entries = [entry for item in files if (entry := detect_entry_point(item))]
+    return sorted(entries, key=lambda entry: (entry.kind, entry.file_path))
+
+
+def detect_entry_point(item: ScannedFile) -> EntryPointSummary | None:
+    text = item.text
+    if item.extension == ".py":
+        if 'if __name__ == "__main__"' in text or "if __name__ == '__main__'" in text:
+            return entry(item, "python_cli", "Likely Python CLI", "Contains a Python main guard.")
+        if "FastAPI(" in text or re.search(r"@\w+\.(get|post|put|patch|delete)\(", text):
+            return entry(item, "python_web", "Likely FastAPI app", "Defines a FastAPI app or route.")
+        if "Flask(" in text or "@app.route(" in text:
+            return entry(item, "python_web", "Likely Flask app", "Defines a Flask app or route.")
+    if item.extension in {".js", ".jsx", ".ts", ".tsx"}:
+        if "createRoot(" in text or "ReactDOM.render(" in text:
+            return entry(item, "react_root", "Likely React root", "Mounts the React application.")
+    if item.extension in {".c", ".cc", ".cpp"} and re.search(r"\bint\s+main\s*\(", text):
+        return entry(item, "native_main", "Likely native entry point", "Defines a C/C++ main function.")
+    return None
+
+
+def entry(item: ScannedFile, kind: str, label: str, detail: str) -> EntryPointSummary:
+    return EntryPointSummary(kind=kind, file_path=item.relative_path, label=label, detail=detail)
 
 
 def build_folder_summaries(nodes: list[GraphNode]) -> list[FolderSummary]:
