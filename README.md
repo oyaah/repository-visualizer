@@ -10,7 +10,7 @@ Start with the right-side **Start here** queue, not the whole graph. It ranks th
 
 Then switch the graph to **Neighborhood** mode on that file. That turns a tangled repository map into the local context around one risky file, which is usually what you need for onboarding or refactoring.
 
-## What ships in the MVP
+## What it does
 
 - FastAPI backend that scans local directories without executing target code.
 - Static dependency extraction for Python, JavaScript/TypeScript, and C/C++ includes, with support for root `.gitignore`, Python `src/` layouts, and TypeScript path aliases.
