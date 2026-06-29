@@ -16,6 +16,7 @@ import { applyLayout, clearSavedLayout, readSavedLayout, saveNodeLayout } from '
 import { toFlowEdges, toFlowNodes } from './layout';
 
 type GraphMode = 'all' | 'neighborhood';
+type GraphPreset = 'all' | 'hide-tests' | 'connected' | 'hubs' | 'issues';
 
 type Props = {
   graph: GraphResponse | null;
@@ -27,6 +28,7 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
   const [query, setQuery] = useState('');
   const [extension, setExtension] = useState('all');
   const [folder, setFolder] = useState('all');
+  const [preset, setPreset] = useState<GraphPreset>('all');
   const [graphMode, setGraphMode] = useState<GraphMode>('all');
   const [layoutVersion, setLayoutVersion] = useState(0);
   const extensions = useMemo(() => {
@@ -48,19 +50,19 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
         node.folder.toLowerCase().includes(normalizedQuery);
       const matchesExtension = extension === 'all' || node.extension === extension;
       const matchesFolder = folder === 'all' || topFolder(node.path) === folder;
-      return matchesQuery && matchesExtension && matchesFolder;
+      return matchesQuery && matchesExtension && matchesFolder && matchesPreset(node, preset);
     });
     const visibleIds = new Set(nodes.map((node) => node.id));
     const edges = (graph?.edges ?? []).filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
     return { nodes, edges };
-  }, [extension, folder, graph, graphMode, query, selectedNodeId]);
+  }, [extension, folder, graph, graphMode, preset, query, selectedNodeId]);
   const savedLayout = useMemo(() => readSavedLayout(graph?.root_path ?? '', graph?.nodes ?? []), [graph?.nodes, graph?.root_path, layoutVersion]);
   const flowNodes = useMemo(
     () => applyLayout(toFlowNodes(visibleGraph.nodes, visibleGraph.edges), savedLayout),
     [savedLayout, visibleGraph]
   );
   const flowEdges = useMemo(() => toFlowEdges(visibleGraph.edges), [visibleGraph]);
-  const flowKey = `${graph?.root_path ?? ''}:${graphMode}:${extension}:${folder}:${query}:${selectedNodeId ?? ''}:${layoutVersion}`;
+  const flowKey = `${graph?.root_path ?? ''}:${graphMode}:${preset}:${extension}:${folder}:${query}:${selectedNodeId ?? ''}:${layoutVersion}`;
   useEffect(() => {
     if (!graph) {
       return;
@@ -117,6 +119,16 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
             placeholder="path or folder"
             aria-label="Filter graph by path"
           />
+        </label>
+        <label className="graph-filter compact">
+          Preset
+          <select value={preset} onChange={(event) => setPreset(event.target.value as GraphPreset)} aria-label="Filter graph by preset">
+            <option value="all">All files</option>
+            <option value="hide-tests">Hide tests</option>
+            <option value="connected">Connected only</option>
+            <option value="hubs">Hubs</option>
+            <option value="issues">Issues</option>
+          </select>
         </label>
         <label className="graph-filter compact">
           Type
@@ -238,4 +250,25 @@ function nodesForMode(graph: GraphResponse | null, graphMode: GraphMode, selecte
 
 function topFolder(path: string): string {
   return path.includes('/') ? path.split('/')[0] : 'root';
+}
+
+function matchesPreset(node: GraphNode, preset: GraphPreset): boolean {
+  if (preset === 'hide-tests') {
+    return !isTestPath(node.path);
+  }
+  if (preset === 'connected') {
+    return node.metrics.dependency_count > 0 || node.metrics.dependent_count > 0;
+  }
+  if (preset === 'hubs') {
+    return node.metrics.dependent_count >= 2;
+  }
+  if (preset === 'issues') {
+    return node.unresolved_imports.length > 0 || node.metrics.complexity >= 8 || node.metrics.loc >= 80;
+  }
+  return true;
+}
+
+function isTestPath(path: string): boolean {
+  const lower = path.toLowerCase();
+  return /(^|\/)(__tests__|tests?|specs?)(\/|$)/.test(lower) || /(^|[._-])(test|spec)\.[jt]sx?$/.test(lower) || lower.startsWith('test_');
 }

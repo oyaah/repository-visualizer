@@ -82,6 +82,17 @@ def test_graph_resolves_from_import_module_aliases(tmp_path: Path) -> None:
     assert ("pkg/main.py", "pkg/utils.py") in edges
 
 
+def test_graph_resolves_relative_package_symbol_imports_to_init(tmp_path: Path) -> None:
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "__init__.py").write_text("class Flask: pass\n", encoding="utf-8")
+    (tmp_path / "pkg" / "cli.py").write_text("from . import Flask\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    edges = {(edge.source, edge.target) for edge in graph.edges}
+    assert ("pkg/cli.py", "pkg/__init__.py") in edges
+
+
 def test_graph_handles_cycles_without_recursing(tmp_path: Path) -> None:
     (tmp_path / "a.py").write_text("import b\n", encoding="utf-8")
     (tmp_path / "b.py").write_text("import a\n", encoding="utf-8")
@@ -175,3 +186,42 @@ def test_graph_detects_likely_entry_points(tmp_path: Path) -> None:
     assert ("react_root", "App.tsx") in entries
     assert ("native_main", "main.c") in entries
     assert all(entry.file_path != "util.py" for entry in graph.repo_report.entry_points)
+
+
+def test_graph_labels_generic_python_route_decorators_without_fastapi_claim(tmp_path: Path) -> None:
+    (tmp_path / "views.py").write_text("@bp.get('/items')\ndef items():\n    return ''\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    entry = graph.repo_report.entry_points[0]
+    assert entry.file_path == "views.py"
+    assert entry.label == "Likely Python web routes"
+
+
+def test_graph_detects_metadata_entry_points(tmp_path: Path) -> None:
+    (tmp_path / "package.json").write_text('{"scripts":{"start":"node src/server.js"},"bin":{"tool":"bin/cli.js"}}', encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "src" / "server.js").write_text("console.log('server')\n", encoding="utf-8")
+    (tmp_path / "bin" / "cli.js").write_text("console.log('cli')\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text('[project.scripts]\nrv = "pkg.main:run"\n', encoding="utf-8")
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "main.py").write_text("def run():\n    pass\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    entries = {(entry.kind, entry.file_path, entry.label) for entry in graph.repo_report.entry_points}
+    assert ("package_script", "src/server.js", "Package script: start") in entries
+    assert ("package_bin", "bin/cli.js", "Package bin: tool") in entries
+    assert ("python_script", "pkg/main.py", "Python script: rv") in entries
+
+
+def test_graph_resolves_dynamic_import_edges(tmp_path: Path) -> None:
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "main.ts").write_text("const lazy = () => import('./lazy');\n", encoding="utf-8")
+    (tmp_path / "src" / "lazy.ts").write_text("export const value = 1;\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    edges = {(edge.source, edge.target, edge.kind.value) for edge in graph.edges}
+    assert ("src/main.ts", "src/lazy.ts", "dynamic_import") in edges
