@@ -4,6 +4,12 @@ Local codebase map for onboarding, refactoring, and spotting bloated files.
 
 ![Repository Visualizer showing FastAPI routing dependencies and prioritized review actions](docs/assets/repository-visualizer-fastapi.png)
 
+## How it helps
+
+Start with the right-side **Start here** queue, not the whole graph. It ranks the first files worth inspecting: dependency cycles, bloated files, high-complexity files, broken imports, and dependency hubs.
+
+Then switch the graph to **Neighborhood** mode on that file. That turns a tangled repository map into the local context around one risky file, which is usually what you need for onboarding or refactoring.
+
 ## What ships in the MVP
 
 - FastAPI backend that scans local directories without executing target code.
