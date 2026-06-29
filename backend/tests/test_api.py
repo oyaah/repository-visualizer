@@ -121,3 +121,28 @@ def test_summarize_cache_only_returns_cached_summary(tmp_path: Path, monkeypatch
     data = cached.json()
     assert data["cached"] is True
     assert data["summary"] == "Cached later"
+
+
+def test_summarize_prompt_requests_actionable_sections(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    captured_prompt = ""
+
+    async def fake_provider(model: str, prompt: str) -> str:
+        nonlocal captured_prompt
+        captured_prompt = prompt
+        return "- Purpose: Starts the app.\n- Key dependencies: utils.\n- Change risk: Routes may break.\n- Read next: utils.py"
+
+    monkeypatch.setattr(ai, "call_openai", fake_provider)
+    (tmp_path / "main.py").write_text(f"import utils\nRUN_ID = '{tmp_path}'\nutils.run()\n", encoding="utf-8")
+
+    response = client.post(
+        "/api/summarize",
+        json={"root_path": str(tmp_path), "file_path": "main.py"},
+    )
+
+    assert response.status_code == 200
+    assert "Purpose:" in captured_prompt
+    assert "Key dependencies:" in captured_prompt
+    assert "Change risk:" in captured_prompt
+    assert "Read next:" in captured_prompt
+    assert "File: main.py" in captured_prompt

@@ -9,7 +9,7 @@ import httpx
 from app.cache import SummaryCache
 from app.models import SummaryResponse
 
-PROMPT_VERSION = "explain-3-sentences-v1"
+PROMPT_VERSION = "repo-risk-summary-v2"
 MAX_SUMMARY_CHARS = 20_000
 OPENAI_PROVIDER = "openai"
 DEFAULT_OPENAI_MODEL = "gpt-4.1-mini"
@@ -74,7 +74,7 @@ class SummaryService:
                 model=model_name,
             )
 
-        prompt = f"Explain what this code does in 3 simple sentences.\n\nFile: {file_path}\n\n{text}"
+        prompt = build_summary_prompt(file_path, text)
         try:
             summary = await call_openai(model_name, prompt)
         except httpx.HTTPError as exc:
@@ -87,7 +87,7 @@ class SummaryService:
                 model=model_name,
             )
 
-        self.cache.set(key, file_path, content_hash, PROMPT_VERSION, model_name, summary)
+        self.cache.set(key, file_path, content_hash, PROMPT_VERSION, model_name, summary, OPENAI_PROVIDER)
         return SummaryResponse(
             file_path=file_path,
             summary=summary,
@@ -108,6 +108,18 @@ def safe_join(root: Path, file_path: str) -> Path:
 def cache_key(file_path: str, content_hash: str, model: str) -> str:
     raw = f"{file_path}:{content_hash}:{PROMPT_VERSION}:{OPENAI_PROVIDER}:{model}"
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+def build_summary_prompt(file_path: str, text: str) -> str:
+    return (
+        "Explain this file for a developer onboarding to the repository.\n"
+        "Return exactly four short bullets with these labels:\n"
+        "- Purpose: what this file is responsible for.\n"
+        "- Key dependencies: important imports, includes, or collaborators visible in the code.\n"
+        "- Change risk: what could break if this file changes.\n"
+        "- Read next: the next file or concept to inspect, if one is visible.\n\n"
+        f"File: {file_path}\n\n{text}"
+    )
 
 
 def disabled_ai_reason() -> str | None:

@@ -55,12 +55,35 @@ export type CycleSummary = {
   edge_count: number;
 };
 
+export type ReportFinding = {
+  kind: string;
+  title: string;
+  file_path: string;
+  detail: string;
+  severity: string;
+  related_files: string[];
+};
+
+export type EntryPointSummary = {
+  kind: string;
+  file_path: string;
+  label: string;
+  detail: string;
+};
+
+export type RepoReport = {
+  start_here: ReportFinding[];
+  entry_points: EntryPointSummary[];
+  reading_order: string[];
+};
+
 export type GraphResponse = {
   root_path: string;
   nodes: GraphNode[];
   edges: GraphEdge[];
   folder_summaries: FolderSummary[];
   cycles: CycleSummary[];
+  repo_report: RepoReport;
   ignored_directories: string[];
   stats: GraphStats;
 };

@@ -328,7 +328,19 @@ h1 {
   font-size: 20px;
 }
 
-.insights-header > span {
+.insights-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.insights-actions button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.insights-actions span {
   border-radius: 999px;
   background: var(--surface-2);
   color: var(--ink-soft);
@@ -577,6 +589,29 @@ h1 {
 .panel-section ul {
   margin: 0;
   padding-left: 18px;
+}
+
+.impact-section {
+  display: grid;
+  gap: 10px;
+}
+
+.impact-row {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+
+.impact-row strong {
+  display: block;
+  margin-bottom: 5px;
+  font-size: 12px;
+}
+
+.impact-row p,
+.impact-row ul {
+  margin: 0;
 }
 
 .summary-box {

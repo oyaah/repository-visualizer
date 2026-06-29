@@ -79,12 +79,35 @@ class CycleSummary(BaseModel):
     edge_count: int
 
 
+class ReportFinding(BaseModel):
+    kind: str
+    title: str
+    file_path: str
+    detail: str
+    severity: str
+    related_files: list[str] = Field(default_factory=list)
+
+
+class EntryPointSummary(BaseModel):
+    kind: str
+    file_path: str
+    label: str
+    detail: str
+
+
+class RepoReport(BaseModel):
+    start_here: list[ReportFinding] = Field(default_factory=list)
+    entry_points: list[EntryPointSummary] = Field(default_factory=list)
+    reading_order: list[str] = Field(default_factory=list)
+
+
 class GraphResponse(BaseModel):
     root_path: str
     nodes: list[GraphNode]
     edges: list[GraphEdge]
     folder_summaries: list[FolderSummary] = Field(default_factory=list)
     cycles: list[CycleSummary] = Field(default_factory=list)
+    repo_report: RepoReport = Field(default_factory=RepoReport)
     ignored_directories: list[str]
     stats: GraphStats
 

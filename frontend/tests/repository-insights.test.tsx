@@ -53,7 +53,44 @@ const graph: GraphResponse = {
     { name: 'tests', files: 1, loc: 200 },
     { name: 'src', files: 3, loc: 190 }
   ],
-  cycles: [{ files: ['src/complex.py', 'src/main.py'], edge_count: 2 }]
+  cycles: [{ files: ['src/complex.py', 'src/main.py'], edge_count: 2 }],
+  repo_report: {
+    start_here: [
+      {
+        kind: 'cycle',
+        title: 'Dependency cycle',
+        file_path: 'src/complex.py',
+        detail: '2 files import each other; change these carefully.',
+        severity: 'high',
+        related_files: ['src/complex.py', 'src/main.py']
+      },
+      {
+        kind: 'unresolved_import',
+        title: 'Unresolved local import',
+        file_path: 'src/complex.py',
+        detail: '1 relative imports could not be mapped.',
+        severity: 'medium',
+        related_files: ['.missing']
+      },
+      {
+        kind: 'large_file',
+        title: 'Large file',
+        file_path: 'tests/test_large.py',
+        detail: '200 lines of code; read this early before changing nearby modules.',
+        severity: 'medium',
+        related_files: []
+      }
+    ],
+    entry_points: [
+      {
+        kind: 'python_web',
+        file_path: 'src/main.py',
+        label: 'Likely FastAPI app',
+        detail: 'Defines a FastAPI app or route.'
+      }
+    ],
+    reading_order: ['src/main.py', 'src/complex.py', 'tests/test_large.py']
+  }
 };
 
 describe('RepositoryInsights', () => {
@@ -64,9 +101,12 @@ describe('RepositoryInsights', () => {
     expect(screen.getByText('Edges')).toBeInTheDocument();
     expect(screen.getByText('Skipped')).toBeInTheDocument();
     expect(screen.getByText('Start here')).toBeInTheDocument();
-    expect(screen.getByText('Break import cycle')).toBeInTheDocument();
-    expect(screen.getByText('Fix unresolved import')).toBeInTheDocument();
-    expect(screen.getByText('Review largest file')).toBeInTheDocument();
+    expect(screen.getByText('Dependency cycle')).toBeInTheDocument();
+    expect(screen.getByText('Unresolved local import')).toBeInTheDocument();
+    expect(screen.getByText('Large file')).toBeInTheDocument();
+    expect(screen.getByText('Likely entry points')).toBeInTheDocument();
+    expect(screen.getByText('Likely FastAPI app')).toBeInTheDocument();
+    expect(screen.getByText('Reading order')).toBeInTheDocument();
     expect(screen.getByText('Top folders')).toBeInTheDocument();
     expect(screen.getByText('src')).toBeInTheDocument();
     expect(screen.getByText('190 LoC / 3 files')).toBeInTheDocument();
@@ -98,7 +138,7 @@ describe('RepositoryInsights', () => {
     const onSelectNode = vi.fn();
     render(<RepositoryInsights graph={graph} onSelectNode={onSelectNode} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Fix unresolved import src/complex.py - 1 refs' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Unresolved local import src/complex.py 1 relative imports could not be mapped.' }));
 
     expect(onSelectNode).toHaveBeenCalledWith(graph.nodes[1]);
   });

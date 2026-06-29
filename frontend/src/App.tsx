@@ -49,7 +49,7 @@ export function App() {
         <GraphCanvas graph={graph} selectedNodeId={selectedNode?.id ?? null} onSelectNode={setSelectedNode} />
         <div className="side-stack">
           <RepositoryInsights graph={graph} onSelectNode={setSelectedNode} />
-          <NodePanel rootPath={graph?.root_path ?? ''} node={selectedNode} />
+          <NodePanel rootPath={graph?.root_path ?? ''} node={selectedNode} graph={graph} />
         </div>
       </main>
     </AppShell>
