@@ -400,6 +400,11 @@ h1 {
   border-color: var(--accent);
 }
 
+.start-here button {
+  display: block;
+  border-color: #b9c5bd;
+}
+
 .insight-section button span,
 .folder-insight-row span {
   overflow: hidden;
@@ -412,6 +417,19 @@ h1 {
 .insight-section button strong,
 .folder-insight-row strong {
   font-size: 12px;
+}
+
+.start-here button span {
+  display: grid;
+  gap: 3px;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.start-here b {
+  color: #17201b;
+  font-size: 13px;
 }
 
 .insight-section p {

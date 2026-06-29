@@ -8,6 +8,20 @@ type Props = {
   onSelectNode: (node: GraphNode) => void;
 };
 
+type PriorityInsight = {
+  id: string;
+  title: string;
+  detail: string;
+  node: GraphNode;
+};
+
+type InsightBuckets = {
+  largest: GraphNode[];
+  complex: GraphNode[];
+  hubs: GraphNode[];
+  unresolved: GraphNode[];
+};
+
 export function RepositoryInsights({ graph, onSelectNode }: Props) {
   const insights = useMemo(() => (graph ? buildInsights(graph) : null), [graph]);
 
@@ -33,6 +47,7 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
         <Stat label="Edges" value={graph.edges.length} />
         <Stat label="Skipped" value={graph.stats.skipped_files} />
       </div>
+      <StartHere items={insights?.priorities ?? []} onSelectNode={onSelectNode} />
       <FolderList folders={insights?.folders ?? []} />
       <CycleList cycles={insights?.cycles ?? []} nodes={graph.nodes} onSelectNode={onSelectNode} />
       <InsightList title="Largest files" icon={<ListTree size={15} />} items={insights?.largest ?? []} valueFor={(node) => `${node.metrics.loc} LoC`} onSelectNode={onSelectNode} />
@@ -59,15 +74,55 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
 }
 
 function buildInsights(graph: GraphResponse) {
+  const largest = topBy(graph.nodes, (node) => node.metrics.loc);
+  const complex = topBy(graph.nodes, (node) => node.metrics.complexity);
+  const hubs = topBy(graph.nodes, (node) => node.metrics.dependent_count);
+  const unresolved = topBy(graph.nodes, (node) => node.unresolved_imports.length);
+  const cycles = graph.cycles.slice(0, 3);
+
   return {
     folders: graph.folder_summaries.slice(0, 3),
-    cycles: graph.cycles.slice(0, 3),
-    largest: topBy(graph.nodes, (node) => node.metrics.loc),
-    complex: topBy(graph.nodes, (node) => node.metrics.complexity),
-    hubs: topBy(graph.nodes, (node) => node.metrics.dependent_count),
-    unresolved: topBy(graph.nodes, (node) => node.unresolved_imports.length),
+    cycles,
+    priorities: buildPriorityInsights(graph.nodes, cycles, { largest, complex, hubs, unresolved }),
+    largest,
+    complex,
+    hubs,
+    unresolved,
     external: topBy(graph.nodes, (node) => node.external_imports.length)
   };
+}
+
+function buildPriorityInsights(
+  nodes: GraphNode[],
+  cycles: CycleSummary[],
+  lists: InsightBuckets
+): PriorityInsight[] {
+  const priorities: PriorityInsight[] = [];
+  const add = (item: Omit<PriorityInsight, 'id'>) => {
+    if (priorities.length === 3) {
+      return;
+    }
+    priorities.push({ ...item, id: `${item.title}:${item.node.id}` });
+  };
+
+  const cycle = cycles[0];
+  const cycleNode = cycle ? nodes.find((node) => node.id === cycle.files[0]) : undefined;
+  if (cycle && cycleNode) {
+    add({ title: 'Break import cycle', detail: `${cycle.files.length} files / ${cycle.edge_count} edges`, node: cycleNode });
+  }
+  if (lists.unresolved[0]) {
+    add({ title: 'Fix unresolved import', detail: `${lists.unresolved[0].path} - ${lists.unresolved[0].unresolved_imports.length} refs`, node: lists.unresolved[0] });
+  }
+  if (lists.largest[0]) {
+    add({ title: 'Review largest file', detail: `${lists.largest[0].path} - ${lists.largest[0].metrics.loc} LoC`, node: lists.largest[0] });
+  }
+  if (lists.complex[0]) {
+    add({ title: 'Simplify complex file', detail: `${lists.complex[0].path} - Cx ${lists.complex[0].metrics.complexity}`, node: lists.complex[0] });
+  }
+  if (lists.hubs[0]) {
+    add({ title: 'Inspect dependency hub', detail: `${lists.hubs[0].path} - ${lists.hubs[0].metrics.dependent_count} uses`, node: lists.hubs[0] });
+  }
+  return priorities;
 }
 
 function topBy(nodes: GraphNode[], score: (node: GraphNode) => number): GraphNode[] {
@@ -83,6 +138,30 @@ function Stat({ label, value }: { label: string; value: number }) {
       <dt>{label}</dt>
       <dd>{value}</dd>
     </div>
+  );
+}
+
+function StartHere({ items, onSelectNode }: { items: PriorityInsight[]; onSelectNode: (node: GraphNode) => void }) {
+  return (
+    <section className="insight-section start-here">
+      <h3><AlertTriangle size={15} />Start here</h3>
+      {items.length ? (
+        <ol>
+          {items.map((item) => (
+            <li key={item.id}>
+              <button type="button" onClick={() => onSelectNode(item.node)}>
+                <span>
+                  <b>{item.title}</b>
+                  {item.detail}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p>No obvious hotspots in analyzed files.</p>
+      )}
+    </section>
   );
 }
 

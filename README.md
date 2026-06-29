@@ -2,14 +2,14 @@
 
 Local codebase map for onboarding, refactoring, and spotting bloated files.
 
-![FastAPI repository graph filtered to the routing neighborhood](docs/assets/fastapi-run.jpg)
+![Repository Visualizer showing FastAPI routing dependencies and prioritized review actions](docs/assets/repository-visualizer-fastapi.png)
 
 ## What ships in the MVP
 
 - FastAPI backend that scans local directories without executing target code.
 - Static dependency extraction for Python, JavaScript/TypeScript, and C/C++ includes, with support for root `.gitignore`, Python `src/` layouts, and TypeScript path aliases.
 - React Flow canvas with draggable nodes, zoom, pan, search/type filters, full/neighborhood graph modes, persisted browser layouts, and an inspector panel.
-- Repository insights panel for largest files, complexity hotspots, dependency hubs, unresolved references, skipped-file counts, and truncation warnings.
+- Repository insights panel with ranked "Start here" actions, largest files, complexity hotspots, dependency hubs, unresolved references, skipped-file counts, and truncation warnings.
 - AI file explanations with OpenAI, cached by file-content hash.
 
 ## Run the backend

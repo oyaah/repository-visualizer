@@ -63,6 +63,10 @@ describe('RepositoryInsights', () => {
     expect(screen.getByText('4 files')).toBeInTheDocument();
     expect(screen.getByText('Edges')).toBeInTheDocument();
     expect(screen.getByText('Skipped')).toBeInTheDocument();
+    expect(screen.getByText('Start here')).toBeInTheDocument();
+    expect(screen.getByText('Break import cycle')).toBeInTheDocument();
+    expect(screen.getByText('Fix unresolved import')).toBeInTheDocument();
+    expect(screen.getByText('Review largest file')).toBeInTheDocument();
     expect(screen.getByText('Top folders')).toBeInTheDocument();
     expect(screen.getByText('src')).toBeInTheDocument();
     expect(screen.getByText('190 LoC / 3 files')).toBeInTheDocument();
@@ -70,7 +74,7 @@ describe('RepositoryInsights', () => {
     expect(screen.getByText('200 LoC / 1 file')).toBeInTheDocument();
     expect(screen.getByText('Cycles')).toBeInTheDocument();
     expect(screen.getByText('src/complex.py -> src/main.py')).toBeInTheDocument();
-    expect(screen.getByText('2 files / 2 edges')).toBeInTheDocument();
+    expect(screen.getAllByText('2 files / 2 edges').length).toBeGreaterThan(0);
     expect(screen.getAllByText('tests/test_large.py').length).toBeGreaterThan(0);
     expect(screen.getByText('200 LoC')).toBeInTheDocument();
     expect(screen.getAllByText('src/large.py').length).toBeGreaterThan(0);
@@ -88,6 +92,15 @@ describe('RepositoryInsights', () => {
     fireEvent.click(screen.getByRole('button', { name: 'src/large.py 120 LoC' }));
 
     expect(onSelectNode).toHaveBeenCalledWith(graph.nodes[2]);
+  });
+
+  it('selects a node from the start-here queue', () => {
+    const onSelectNode = vi.fn();
+    render(<RepositoryInsights graph={graph} onSelectNode={onSelectNode} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Fix unresolved import src/complex.py - 1 refs' }));
+
+    expect(onSelectNode).toHaveBeenCalledWith(graph.nodes[1]);
   });
 
   it('selects the first file from a cycle row', () => {
