@@ -32,7 +32,7 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
           <button type="button" onClick={() => downloadMarkdownReport(graph)} aria-label="Export Markdown report">
             <Download size={15} />
           </button>
-          <span>{graph.nodes.length} files</span>
+          <span>{graph.stats.analyzed_files}/{graph.stats.total_files_found} source files</span>
         </div>
       </div>
       <div className="insights-stats">
@@ -128,6 +128,7 @@ function StartHere({
                   <span>
                     <b>{item.title}</b>
                     <em>{item.file_path}</em>
+                    <small>{item.confidence} confidence</small>
                     {item.detail}
                   </span>
                 </button>
@@ -169,7 +170,7 @@ function EntryPointList({
           })}
         </ol>
       ) : (
-        <p>No likely entry points found in analyzed files.</p>
+        <p>No likely source entry points found in analyzed files.</p>
       )}
     </section>
   );

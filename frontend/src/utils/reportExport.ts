@@ -16,7 +16,7 @@ export function buildMarkdownReport(graph: GraphResponse): string {
     '## Start Here',
     '',
     listOrFallback(
-      graph.repo_report.start_here.map((finding) => `- **${finding.title}** (${finding.severity}) - \`${finding.file_path}\`: ${finding.detail}`),
+      graph.repo_report.start_here.map((finding) => `- **${finding.title}** (${finding.severity}, ${finding.confidence} confidence) - \`${finding.file_path}\`: ${finding.detail}`),
       '- No obvious hotspots in analyzed files.'
     ),
     '',

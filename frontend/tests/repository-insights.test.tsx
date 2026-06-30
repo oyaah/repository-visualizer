@@ -62,6 +62,7 @@ const graph: GraphResponse = {
         file_path: 'src/complex.py',
         detail: '2 files import each other; change these carefully.',
         severity: 'high',
+        confidence: 'high',
         related_files: ['src/complex.py', 'src/main.py']
       },
       {
@@ -70,6 +71,7 @@ const graph: GraphResponse = {
         file_path: 'src/complex.py',
         detail: '1 relative imports could not be mapped.',
         severity: 'medium',
+        confidence: 'high',
         related_files: ['.missing']
       },
       {
@@ -78,6 +80,7 @@ const graph: GraphResponse = {
         file_path: 'tests/test_large.py',
         detail: '200 lines of code; read this early before changing nearby modules.',
         severity: 'medium',
+        confidence: 'high',
         related_files: []
       }
     ],
@@ -104,6 +107,7 @@ describe('RepositoryInsights', () => {
     expect(screen.getByText('Dependency cycle')).toBeInTheDocument();
     expect(screen.getByText('Unresolved local import')).toBeInTheDocument();
     expect(screen.getByText('Large file')).toBeInTheDocument();
+    expect(screen.getAllByText('high confidence').length).toBeGreaterThan(0);
     expect(screen.getByText('Likely entry points')).toBeInTheDocument();
     expect(screen.getByText('Likely FastAPI app')).toBeInTheDocument();
     expect(screen.getByText('Reading order')).toBeInTheDocument();
@@ -138,7 +142,7 @@ describe('RepositoryInsights', () => {
     const onSelectNode = vi.fn();
     render(<RepositoryInsights graph={graph} onSelectNode={onSelectNode} />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Unresolved local import src/complex.py 1 relative imports could not be mapped.' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Unresolved local import src/complex.py high confidence 1 relative imports could not be mapped.' }));
 
     expect(onSelectNode).toHaveBeenCalledWith(graph.nodes[1]);
   });

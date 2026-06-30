@@ -116,13 +116,15 @@ def build_repo_report(root: Path, nodes: list[GraphNode], cycles: list[CycleSumm
     findings: list[ReportFinding] = []
 
     for cycle in cycles[:2]:
+        package_cycle = any(is_package_init(path) for path in cycle.files)
         findings.append(
             ReportFinding(
                 kind="cycle",
                 title="Dependency cycle",
                 file_path=cycle.files[0],
-                detail=f"{len(cycle.files)} files import each other ({', '.join(cycle.files[:3])}); change these carefully.",
-                severity="high",
+                detail=cycle_detail(cycle.files),
+                severity="medium" if package_cycle else "high",
+                confidence="medium" if package_cycle else "high",
                 related_files=cycle.files,
             )
         )
@@ -139,6 +141,7 @@ def build_repo_report(root: Path, nodes: list[GraphNode], cycles: list[CycleSumm
                 file_path=node.path,
                 detail=f"{len(node.unresolved_imports)} relative imports could not be mapped: {', '.join(node.unresolved_imports[:3])}.",
                 severity="medium",
+                confidence="high",
                 related_files=node.unresolved_imports,
             )
         )
@@ -153,6 +156,7 @@ def build_repo_report(root: Path, nodes: list[GraphNode], cycles: list[CycleSumm
                     file_path=node.path,
                     detail=f"{node.metrics.loc} LoC, {node.metrics.dependent_count} dependents, {node.metrics.dependency_count} dependencies.",
                     severity="medium",
+                    confidence="high",
                 )
             )
 
@@ -166,19 +170,22 @@ def build_repo_report(root: Path, nodes: list[GraphNode], cycles: list[CycleSumm
                     file_path=node.path,
                     detail=f"Complexity score {node.metrics.complexity} across {node.metrics.loc} LoC; likely to hide edge cases.",
                     severity="medium",
+                    confidence="high",
                 )
             )
 
     hubs = sorted(nodes, key=lambda node: (-node.metrics.dependent_count, node.path))[:2]
     for node in hubs:
         if node.metrics.dependent_count >= 2:
+            facade = is_package_init(node.path)
             findings.append(
                 ReportFinding(
-                    kind="hub",
-                    title="High impact dependency",
+                    kind="api_facade" if facade else "hub",
+                    title="Public API facade" if facade else "High impact dependency",
                     file_path=node.path,
-                    detail=f"{node.metrics.dependent_count} files import this file; first dependents: {', '.join(node.imported_by[:3])}.",
-                    severity="medium",
+                    detail=hub_detail(node, facade),
+                    severity="low" if facade else "medium",
+                    confidence="medium" if facade else "high",
                     related_files=node.imported_by[:8],
                 )
             )
@@ -193,6 +200,24 @@ def build_repo_report(root: Path, nodes: list[GraphNode], cycles: list[CycleSumm
         )
     )
     return RepoReport(start_here=findings, entry_points=entry_points[:8], reading_order=reading_order[:12])
+
+
+def cycle_detail(files: list[str]) -> str:
+    prefix = f"{len(files)} files import each other ({', '.join(files[:3])})"
+    if any(is_package_init(path) for path in files):
+        return f"{prefix}; package facade or lazy imports may inflate this cycle."
+    return f"{prefix}; change these carefully."
+
+
+def hub_detail(node: GraphNode, facade: bool) -> str:
+    dependents = f"{node.metrics.dependent_count} files import this file; first dependents: {', '.join(node.imported_by[:3])}."
+    if facade:
+        return f"{dependents} This looks like a package API barrel, so treat it as public surface before calling it bad coupling."
+    return dependents
+
+
+def is_package_init(path: str) -> bool:
+    return path.endswith("__init__.py")
 
 
 def dedupe_findings(findings: list[ReportFinding]) -> list[ReportFinding]:

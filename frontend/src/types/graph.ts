@@ -61,6 +61,7 @@ export type ReportFinding = {
   file_path: string;
   detail: string;
   severity: string;
+  confidence: string;
   related_files: string[];
 };
 
