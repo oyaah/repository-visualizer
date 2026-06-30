@@ -266,9 +266,9 @@ h1 {
 .graph-warning {
   position: absolute;
   z-index: 2;
-  right: 12px;
-  bottom: 12px;
-  max-width: min(560px, calc(100% - 24px));
+  left: 12px;
+  top: 64px;
+  max-width: min(420px, calc(100% - 24px));
   border: 1px solid #e3c15c;
   border-radius: 8px;
   background: rgba(255, 249, 224, 0.94);
