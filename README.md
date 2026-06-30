@@ -2,7 +2,14 @@
 
 Repository Visualizer is a local-first codebase understanding tool. Point it at a local repository and it statically builds a dependency graph, ranks the files worth reading first, shows selected-file blast radius, and can summarize files with OpenAI.
 
-It is built for onboarding and refactoring: where to start, what imports what, which files look risky, and what might break if one file changes.
+It is built for onboarding and refactoring. Instead of dumping a giant graph and calling it insight, it answers the questions that matter first:
+
+- Where should I start reading?
+- Which files are risky, bloated, or highly coupled?
+- What imports what, and is that dependency top-level, lazy, conditional, type-checking, re-exported, or dynamic?
+- Which package/folder owns most of the risk?
+- What could break if I change this file?
+- Which file-level functions/classes deserve attention before a refactor?
 
 ![Repository Visualizer mapping its own backend: dependency graph on the left, ranked "Start here" insights on the right](docs/assets/repository-visualizer.png)
 
@@ -10,7 +17,11 @@ It is built for onboarding and refactoring: where to start, what imports what, w
 
 - **Local scanning** through a FastAPI backend. Target code is read, not executed.
 - **Dependency extraction** for Python, JavaScript/TypeScript, TypeScript path aliases, dynamic imports, re-exports, type-checking imports, lazy/local imports, and C/C++ includes.
-- **Repository insights** with ranked "Start here" findings, confidence labels, entry points, reading order, package summaries, folder summaries, cycles, large files, risk scores, symbol hotspots, static security/framework hints, unresolved imports, and dependency hubs.
+- **Scoped edge labels** so dependencies are not all treated equally. Top-level imports, lazy/local imports, conditional imports, type-checking imports, re-exports, and dynamic imports are labeled separately.
+- **Repository insights** with ranked "Start here" findings, confidence labels, likely entry points, reading order, package summaries, folder summaries, cycles, large files, unresolved imports, and dependency hubs.
+- **Risk scoring** for files and packages using size, complexity, coupling, unresolved imports, and static security hints.
+- **Symbol hotspots** for functions/classes inside Python and JavaScript/TypeScript files, capped to the symbols most likely to matter.
+- **Static security and framework hints** for obvious secret-like values, unsafe APIs, FastAPI/Flask/Django surfaces, React roots, and Node-style route files.
 - **Large-repo controls** with file caps, truncation warnings, graph search, extension/folder filters, hide-tests, connected-only, hubs, issues, and neighborhood mode.
 - **Selected-file impact** showing direct dependencies, direct dependents, second-order dependents, and likely affected tests.
 - **React Flow canvas** with draggable nodes, zoom/pan, minimap, saved node positions, and reset layout.
@@ -27,10 +38,10 @@ It is built for onboarding and refactoring: where to start, what imports what, w
 ## How It Works
 
 1. The backend scans supported source files under a local path.
-2. Static parsers extract imports/includes and resolve local edges.
-3. The analyzer calculates LoC, size, branch complexity, maintainability, risk score, dependency count, and dependent count.
-4. The API returns graph data plus `repo_report` findings.
-5. The frontend renders the graph, filters, selected-file impact, report, and optional summary panel.
+2. Static parsers extract imports/includes, dependency scope, symbols, and lightweight hints.
+3. The analyzer resolves local edges and calculates LoC, size, branch complexity, maintainability, risk score, dependency count, and dependent count.
+4. The report builder ranks files, packages, cycles, hubs, entry points, and likely reading order.
+5. The frontend renders the graph, filters, selected-file impact, package insights, exports, and optional summary panel.
 
 ## Requirements
 
@@ -123,7 +134,15 @@ Minimal analyze request:
 }
 ```
 
-The analyze response includes `nodes`, `edges`, `folder_summaries`, `package_summaries`, `cycles`, `repo_report`, and scan `stats` such as `total_files_found`, `analyzed_files`, `skipped_files`, `truncated`, and `warnings`.
+The analyze response includes `nodes`, scoped `edges`, `folder_summaries`, `package_summaries`, `cycles`, `repo_report`, and scan `stats` such as `total_files_found`, `analyzed_files`, `skipped_files`, `truncated`, and `warnings`.
+
+Each file node includes:
+
+- file metrics: LoC, total lines, size, complexity, maintainability, risk score, dependency count, dependent count
+- local imports and imported-by relationships
+- unresolved and external imports
+- top symbol hotspots
+- static security/framework hints
 
 ## Large Repository Behavior
 
