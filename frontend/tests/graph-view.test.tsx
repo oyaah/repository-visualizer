@@ -94,6 +94,51 @@ const graphWithOrphan: GraphResponse = {
   ]
 };
 
+const graphWithPresets: GraphResponse = {
+  ...graph,
+  stats: {
+    total_files_found: 4,
+    analyzed_files: 4,
+    skipped_files: 0,
+    skipped_reasons: {},
+    truncated: false,
+    warnings: []
+  },
+  nodes: [
+    ...graph.nodes,
+    {
+      id: 'tests/test_main.py',
+      path: 'tests/test_main.py',
+      label: 'test_main.py',
+      folder: 'tests',
+      extension: '.py',
+      kind: 'file',
+      metrics: { loc: 12, total_lines: 12, size_bytes: 120, complexity: 1, dependency_count: 1, dependent_count: 0 },
+      imports: ['src/main.py'],
+      imported_by: [],
+      unresolved_imports: [],
+      external_imports: []
+    },
+    {
+      id: 'src/large.py',
+      path: 'src/large.py',
+      label: 'large.py',
+      folder: 'src',
+      extension: '.py',
+      kind: 'file',
+      metrics: { loc: 100, total_lines: 100, size_bytes: 1000, complexity: 1, dependency_count: 0, dependent_count: 0 },
+      imports: [],
+      imported_by: [],
+      unresolved_imports: [],
+      external_imports: []
+    }
+  ],
+  edges: [
+    ...graph.edges,
+    { id: 'e2', source: 'tests/test_main.py', target: 'src/main.py', kind: 'import', label: 'import' }
+  ]
+};
+
 describe('GraphCanvas', () => {
   it('renders graph nodes and counts', () => {
     render(<GraphCanvas graph={graph} selectedNodeId={null} onSelectNode={() => undefined} />);
@@ -123,6 +168,21 @@ describe('GraphCanvas', () => {
     expect(screen.queryByText('main.py')).not.toBeInTheDocument();
     expect(screen.queryByText('utils.py')).not.toBeInTheDocument();
     expect(screen.getByText('readme.md')).toBeInTheDocument();
+  });
+
+  it('filters graph nodes by preset', () => {
+    render(<GraphCanvas graph={graphWithPresets} selectedNodeId={null} onSelectNode={() => undefined} />);
+
+    fireEvent.change(screen.getByLabelText('Filter graph by preset'), { target: { value: 'hide-tests' } });
+
+    expect(screen.getByText('3 of 4 files')).toBeInTheDocument();
+    expect(screen.queryByText('test_main.py')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Filter graph by preset'), { target: { value: 'issues' } });
+
+    expect(screen.getByText('1 of 4 files')).toBeInTheDocument();
+    expect(screen.getByText('large.py')).toBeInTheDocument();
+    expect(screen.queryByText('main.py')).not.toBeInTheDocument();
   });
 
   it('shows only one-hop related files in neighborhood mode', () => {

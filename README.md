@@ -2,7 +2,7 @@
 
 Local codebase map for onboarding, refactoring, and spotting bloated files.
 
-![Repository Visualizer showing FastAPI routing dependencies and prioritized review actions](docs/assets/repository-visualizer-fastapi.png)
+![Repository Visualizer analyzing Flask with issue filters and prioritized repository insights](docs/assets/repository-visualizer-flask-insights.png)
 
 ## How it helps
 

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import json
 import posixpath
 import re
+import tomllib
 from pathlib import Path
 
 from app.models import (
@@ -98,7 +99,7 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
         edges=sorted_edges,
         folder_summaries=folder_summaries,
         cycles=cycles,
-        repo_report=build_repo_report(sorted_nodes, cycles, scanned_files),
+        repo_report=build_repo_report(root, sorted_nodes, cycles, scanned_files),
         ignored_directories=scan_result.ignored_directories,
         stats=GraphStats(
             total_files_found=scan_result.total_files_found,
@@ -111,7 +112,7 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
     )
 
 
-def build_repo_report(nodes: list[GraphNode], cycles: list[CycleSummary], scanned_files: list[ScannedFile]) -> RepoReport:
+def build_repo_report(root: Path, nodes: list[GraphNode], cycles: list[CycleSummary], scanned_files: list[ScannedFile]) -> RepoReport:
     findings: list[ReportFinding] = []
 
     for cycle in cycles[:2]:
@@ -120,7 +121,7 @@ def build_repo_report(nodes: list[GraphNode], cycles: list[CycleSummary], scanne
                 kind="cycle",
                 title="Dependency cycle",
                 file_path=cycle.files[0],
-                detail=f"{len(cycle.files)} files import each other; change these carefully.",
+                detail=f"{len(cycle.files)} files import each other ({', '.join(cycle.files[:3])}); change these carefully.",
                 severity="high",
                 related_files=cycle.files,
             )
@@ -136,7 +137,7 @@ def build_repo_report(nodes: list[GraphNode], cycles: list[CycleSummary], scanne
                 kind="unresolved_import",
                 title="Unresolved local import",
                 file_path=node.path,
-                detail=f"{len(node.unresolved_imports)} relative imports could not be mapped.",
+                detail=f"{len(node.unresolved_imports)} relative imports could not be mapped: {', '.join(node.unresolved_imports[:3])}.",
                 severity="medium",
                 related_files=node.unresolved_imports,
             )
@@ -150,7 +151,7 @@ def build_repo_report(nodes: list[GraphNode], cycles: list[CycleSummary], scanne
                     kind="large_file",
                     title="Large file",
                     file_path=node.path,
-                    detail=f"{node.metrics.loc} lines of code; read this early before changing nearby modules.",
+                    detail=f"{node.metrics.loc} LoC, {node.metrics.dependent_count} dependents, {node.metrics.dependency_count} dependencies.",
                     severity="medium",
                 )
             )
@@ -163,7 +164,7 @@ def build_repo_report(nodes: list[GraphNode], cycles: list[CycleSummary], scanne
                     kind="complex_file",
                     title="High branch complexity",
                     file_path=node.path,
-                    detail=f"Complexity score {node.metrics.complexity}; likely to hide edge cases.",
+                    detail=f"Complexity score {node.metrics.complexity} across {node.metrics.loc} LoC; likely to hide edge cases.",
                     severity="medium",
                 )
             )
@@ -176,14 +177,14 @@ def build_repo_report(nodes: list[GraphNode], cycles: list[CycleSummary], scanne
                     kind="hub",
                     title="High impact dependency",
                     file_path=node.path,
-                    detail=f"{node.metrics.dependent_count} files import this file.",
+                    detail=f"{node.metrics.dependent_count} files import this file; first dependents: {', '.join(node.imported_by[:3])}.",
                     severity="medium",
                     related_files=node.imported_by[:8],
                 )
             )
 
     findings = dedupe_findings(findings)[:6]
-    entry_points = find_entry_points(scanned_files)
+    entry_points = find_entry_points(root, scanned_files)
     reading_order = list(
         dict.fromkeys(
             [entry.file_path for entry in entry_points]
@@ -206,9 +207,82 @@ def dedupe_findings(findings: list[ReportFinding]) -> list[ReportFinding]:
     return deduped
 
 
-def find_entry_points(files: list[ScannedFile]) -> list[EntryPointSummary]:
+def find_entry_points(root: Path, files: list[ScannedFile]) -> list[EntryPointSummary]:
     entries = [entry for item in files if (entry := detect_entry_point(item))]
-    return sorted(entries, key=lambda entry: (entry.kind, entry.file_path))
+    entries.extend(find_metadata_entry_points(root, {item.relative_path: item for item in files}))
+    seen: set[tuple[str, str]] = set()
+    deduped = []
+    for item in entries:
+        key = (item.kind, item.file_path)
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(item)
+    return sorted(deduped, key=lambda entry: (entry.kind, entry.file_path))
+
+
+def find_metadata_entry_points(root: Path, files: dict[str, ScannedFile]) -> list[EntryPointSummary]:
+    entries: list[EntryPointSummary] = []
+    entries.extend(find_package_json_entry_points(root, files))
+    entries.extend(find_pyproject_entry_points(root, files))
+    return entries
+
+
+def find_package_json_entry_points(root: Path, files: dict[str, ScannedFile]) -> list[EntryPointSummary]:
+    package_json = root / "package.json"
+    try:
+        data = json.loads(package_json.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+
+    entries: list[EntryPointSummary] = []
+    scripts = data.get("scripts", {})
+    if isinstance(scripts, dict):
+        for name, command in scripts.items():
+            if isinstance(name, str) and isinstance(command, str):
+                target = script_target(command, files)
+                if target:
+                    entries.append(EntryPointSummary(kind="package_script", file_path=target, label=f"Package script: {name}", detail=f"`npm run {name}` reaches this file."))
+    bin_field = data.get("bin", {})
+    if isinstance(bin_field, str):
+        target = first_existing_candidate(bin_field, files)
+        if target:
+            entries.append(EntryPointSummary(kind="package_bin", file_path=target, label="Package bin", detail="Declared as the package executable."))
+    elif isinstance(bin_field, dict):
+        for name, path in bin_field.items():
+            if isinstance(name, str) and isinstance(path, str):
+                target = first_existing_candidate(path, files)
+                if target:
+                    entries.append(EntryPointSummary(kind="package_bin", file_path=target, label=f"Package bin: {name}", detail="Declared as a package executable."))
+    return entries
+
+
+def find_pyproject_entry_points(root: Path, files: dict[str, ScannedFile]) -> list[EntryPointSummary]:
+    pyproject = root / "pyproject.toml"
+    try:
+        data = tomllib.loads(pyproject.read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return []
+
+    scripts = data.get("project", {}).get("scripts", {})
+    if not isinstance(scripts, dict):
+        return []
+    entries = []
+    for name, target in scripts.items():
+        if not isinstance(name, str) or not isinstance(target, str):
+            continue
+        module = target.split(":", 1)[0].replace(".", "/")
+        file_path = first_existing_candidate(module, files, python=True) or first_existing_candidate(f"src/{module}", files, python=True)
+        if file_path:
+            entries.append(EntryPointSummary(kind="python_script", file_path=file_path, label=f"Python script: {name}", detail=f"`{name}` resolves to `{target}`."))
+    return entries
+
+
+def script_target(command: str, files: dict[str, ScannedFile]) -> str | None:
+    match = re.search(r"(?:node|tsx|ts-node|vite-node|python(?:3)?)\s+([^\s;&|]+)", command)
+    if not match:
+        return None
+    return first_existing_candidate(match.group(1), files)
 
 
 def detect_entry_point(item: ScannedFile) -> EntryPointSummary | None:
@@ -216,8 +290,10 @@ def detect_entry_point(item: ScannedFile) -> EntryPointSummary | None:
     if item.extension == ".py":
         if 'if __name__ == "__main__"' in text or "if __name__ == '__main__'" in text:
             return entry(item, "python_cli", "Likely Python CLI", "Contains a Python main guard.")
-        if "FastAPI(" in text or re.search(r"@\w+\.(get|post|put|patch|delete)\(", text):
+        if "FastAPI(" in text:
             return entry(item, "python_web", "Likely FastAPI app", "Defines a FastAPI app or route.")
+        if re.search(r"@\w+\.(get|post|put|patch|delete)\(", text):
+            return entry(item, "python_web", "Likely Python web routes", "Defines web route handlers.")
         if "Flask(" in text or "@app.route(" in text:
             return entry(item, "python_web", "Likely Flask app", "Defines a Flask app or route.")
     if item.extension in {".js", ".jsx", ".ts", ".tsx"}:
@@ -325,7 +401,12 @@ def resolve_python_dependency(source: ScannedFile, dependency: Dependency, files
         for _ in range(max(level - 1, 0)):
             base = base.parent
         candidate = base / module.replace(".", "/")
-        return first_existing_candidate(candidate.as_posix(), files, python=True)
+        resolved = first_existing_candidate(candidate.as_posix(), files, python=True)
+        if resolved:
+            return resolved
+        if module and "." not in module:
+            return first_existing_candidate((base / "__init__").as_posix(), files, python=True)
+        return None
 
     package_path = dependency.raw.replace(".", "/")
     return first_existing_candidate(package_path, files, python=True) or first_existing_candidate(f"src/{package_path}", files, python=True)
