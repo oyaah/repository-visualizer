@@ -3,6 +3,8 @@ export type FileMetrics = {
   total_lines: number;
   size_bytes: number;
   complexity: number;
+  maintainability?: number;
+  risk_score?: number;
   dependency_count: number;
   dependent_count: number;
 };
@@ -51,6 +53,17 @@ export type FolderSummary = {
   loc: number;
 };
 
+export type PackageSummary = {
+  name: string;
+  files: number;
+  loc: number;
+  average_complexity: number;
+  average_risk: number;
+  dependency_count: number;
+  dependent_count: number;
+  highest_risk_files: string[];
+};
+
 export type CycleSummary = {
   files: string[];
   edge_count: number;
@@ -84,6 +97,7 @@ export type GraphResponse = {
   nodes: GraphNode[];
   edges: GraphEdge[];
   folder_summaries: FolderSummary[];
+  package_summaries?: PackageSummary[];
   cycles: CycleSummary[];
   repo_report: RepoReport;
   ignored_directories: string[];

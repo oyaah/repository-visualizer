@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 from dataclasses import dataclass
 from fnmatch import fnmatch
+import math
 import os
 from pathlib import Path
 
@@ -271,4 +272,13 @@ def calculate_metrics(text: str, size_bytes: int) -> FileMetrics:
         total_lines=len(lines),
         size_bytes=size_bytes,
         complexity=complexity,
+        maintainability=calculate_maintainability(len(meaningful), complexity, size_bytes),
     )
+
+
+def calculate_maintainability(loc: int, complexity: int, size_bytes: int) -> float:
+    if loc <= 0:
+        return 100.0
+    volume = max(size_bytes * 8, 1)
+    score = 171.0 - (5.2 * math.log(volume)) - (0.23 * complexity) - (16.2 * math.log(loc))
+    return round(max(0.0, min(100.0, score)), 2)

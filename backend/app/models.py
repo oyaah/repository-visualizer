@@ -42,6 +42,8 @@ class FileMetrics(BaseModel):
     total_lines: int
     size_bytes: int
     complexity: int
+    maintainability: float = 100.0
+    risk_score: int = 0
     dependency_count: int = 0
     dependent_count: int = 0
 
@@ -84,6 +86,17 @@ class FolderSummary(BaseModel):
     loc: int
 
 
+class PackageSummary(BaseModel):
+    name: str
+    files: int
+    loc: int
+    average_complexity: float
+    average_risk: float
+    dependency_count: int
+    dependent_count: int
+    highest_risk_files: list[str] = Field(default_factory=list)
+
+
 class CycleSummary(BaseModel):
     files: list[str]
     edge_count: int
@@ -117,6 +130,7 @@ class GraphResponse(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
     folder_summaries: list[FolderSummary] = Field(default_factory=list)
+    package_summaries: list[PackageSummary] = Field(default_factory=list)
     cycles: list[CycleSummary] = Field(default_factory=list)
     repo_report: RepoReport = Field(default_factory=RepoReport)
     ignored_directories: list[str]

@@ -130,6 +130,24 @@ def test_graph_returns_folder_summaries(tmp_path: Path) -> None:
     assert summaries["root"].files == 1
 
 
+def test_graph_returns_package_summaries_and_risk_scores(tmp_path: Path) -> None:
+    (tmp_path / "api").mkdir()
+    (tmp_path / "core").mkdir()
+    (tmp_path / "api" / "routes.py").write_text("import core.service\nif value:\n    pass\n", encoding="utf-8")
+    (tmp_path / "core" / "service.py").write_text("if a:\n    pass\nif b:\n    pass\n", encoding="utf-8")
+    (tmp_path / "core" / "model.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    risky = next(node for node in graph.nodes if node.path == "core/service.py")
+    assert risky.metrics.risk_score > 0
+    packages = {summary.name: summary for summary in graph.package_summaries}
+    assert packages["core"].files == 2
+    assert packages["core"].loc >= 3
+    assert "core/service.py" in packages["core"].highest_risk_files
+    assert packages["api"].dependency_count == 1
+
+
 def test_graph_deduplicates_repeated_import_edges(tmp_path: Path) -> None:
     (tmp_path / "a.py").write_text("import b\nimport b\n", encoding="utf-8")
     (tmp_path / "b.py").write_text("VALUE = 1\n", encoding="utf-8")

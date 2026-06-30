@@ -21,6 +21,7 @@ from app.models import (
     GraphStats,
     RepoReport,
     ReportFinding,
+    PackageSummary,
 )
 from app.parsers import Dependency, parse_dependencies
 from app.scanner import ScannedFile, scan_repository
@@ -88,10 +89,12 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
             dependency_count=len(node.imports),
             dependent_count=len(node.imported_by),
         )
+        node.metrics.risk_score = calculate_risk_score(node)
 
     sorted_nodes = sorted(nodes.values(), key=lambda node: node.path)
     sorted_edges = sorted(edges, key=lambda edge: edge.id)
     folder_summaries = build_folder_summaries(sorted_nodes)
+    package_summaries = build_package_summaries(sorted_nodes)
     cycles = find_cycles(sorted_nodes, sorted_edges)
 
     return GraphResponse(
@@ -99,6 +102,7 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
         nodes=sorted_nodes,
         edges=sorted_edges,
         folder_summaries=folder_summaries,
+        package_summaries=package_summaries,
         cycles=cycles,
         repo_report=build_repo_report(root, sorted_nodes, cycles, scanned_files),
         ignored_directories=scan_result.ignored_directories,
@@ -172,6 +176,20 @@ def build_repo_report(root: Path, nodes: list[GraphNode], cycles: list[CycleSumm
                     detail=f"Complexity score {node.metrics.complexity} across {node.metrics.loc} LoC; likely to hide edge cases.",
                     severity="medium",
                     confidence="high",
+                )
+            )
+
+    risky_nodes = sorted(nodes, key=lambda node: (-node.metrics.risk_score, node.path))[:1]
+    for node in risky_nodes:
+        if node.metrics.risk_score >= 60:
+            findings.append(
+                ReportFinding(
+                    kind="risk",
+                    title="High risk file",
+                    file_path=node.path,
+                    detail=f"Risk score {node.metrics.risk_score}/100 from size, complexity, coupling, and unresolved imports.",
+                    severity="high" if node.metrics.risk_score >= 80 else "medium",
+                    confidence="medium",
                 )
             )
 
@@ -344,6 +362,45 @@ def build_folder_summaries(nodes: list[GraphNode]) -> list[FolderSummary]:
         (FolderSummary(name=name, **summary) for name, summary in summaries.items()),
         key=lambda item: (-item.loc, -item.files, item.name),
     )
+
+
+def build_package_summaries(nodes: list[GraphNode]) -> list[PackageSummary]:
+    grouped: dict[str, list[GraphNode]] = defaultdict(list)
+    for node in nodes:
+        grouped[top_package(node.path)].append(node)
+
+    summaries = []
+    for name, package_nodes in grouped.items():
+        dependencies = {dep for node in package_nodes for dep in node.imports if top_package(dep) != name}
+        dependents = {dep for node in package_nodes for dep in node.imported_by if top_package(dep) != name}
+        highest_risk = sorted(package_nodes, key=lambda node: (-node.metrics.risk_score, node.path))[:3]
+        summaries.append(
+            PackageSummary(
+                name=name,
+                files=len(package_nodes),
+                loc=sum(node.metrics.loc for node in package_nodes),
+                average_complexity=round(sum(node.metrics.complexity for node in package_nodes) / len(package_nodes), 2),
+                average_risk=round(sum(node.metrics.risk_score for node in package_nodes) / len(package_nodes), 2),
+                dependency_count=len(dependencies),
+                dependent_count=len(dependents),
+                highest_risk_files=[node.path for node in highest_risk if node.metrics.risk_score > 0],
+            )
+        )
+    return sorted(summaries, key=lambda item: (-item.average_risk, -item.loc, item.name))
+
+
+def top_package(path: str) -> str:
+    return path.split("/", 1)[0] if "/" in path else "root"
+
+
+def calculate_risk_score(node: GraphNode) -> int:
+    score = 0
+    score += min(node.metrics.loc // 10, 25)
+    score += min(node.metrics.complexity * 3, 30)
+    score += min(node.metrics.dependent_count * 5, 20)
+    score += min(node.metrics.dependency_count * 3, 10)
+    score += min(len(node.unresolved_imports) * 10, 15)
+    return min(score, 100)
 
 
 def find_cycles(nodes: list[GraphNode], edges: list[GraphEdge]) -> list[CycleSummary]:
