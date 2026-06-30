@@ -48,6 +48,21 @@ class FileMetrics(BaseModel):
     dependent_count: int = 0
 
 
+class CodeSymbol(BaseModel):
+    name: str
+    kind: str
+    line: int
+    complexity: int
+
+
+class CodeHint(BaseModel):
+    kind: str
+    title: str
+    detail: str
+    severity: str
+    line: int | None = None
+
+
 class GraphNode(BaseModel):
     id: str
     path: str
@@ -60,6 +75,8 @@ class GraphNode(BaseModel):
     imported_by: list[str] = Field(default_factory=list)
     unresolved_imports: list[str] = Field(default_factory=list)
     external_imports: list[str] = Field(default_factory=list)
+    symbols: list[CodeSymbol] = Field(default_factory=list)
+    hints: list[CodeHint] = Field(default_factory=list)
 
 
 class GraphEdge(BaseModel):

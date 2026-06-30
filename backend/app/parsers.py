@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.models import EdgeKind, EdgeScope
+from app.models import CodeSymbol, EdgeKind, EdgeScope
 
 
 @dataclass(frozen=True)
@@ -24,6 +24,10 @@ JS_IMPORT_PATTERNS = [
 JS_RE_EXPORT_PATTERN = re.compile(r"""export\s+[^'"]+\s+from\s+['"]([^'"]+)['"]""")
 DYNAMIC_IMPORT_PATTERN = re.compile(r"""import\(\s*['"]([^'"]+)['"]\s*\)""")
 INCLUDE_PATTERN = re.compile(r"""^\s*#\s*include\s+([<"])([^>"]+)[>"]""", re.MULTILINE)
+JS_SYMBOL_PATTERN = re.compile(
+    r"""^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?(?:function|class)\s+([A-Za-z_$][\w$]*)|^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>""",
+    re.MULTILINE,
+)
 _DEPENDENCY_CACHE: dict[tuple[str, str], list[Dependency]] = {}
 _CACHE_LIMIT = 2048
 
@@ -208,3 +212,45 @@ def parse_c_dependencies(text: str) -> list[Dependency]:
         delimiter, raw = match.groups()
         deps.append(Dependency(raw=raw, kind=EdgeKind.INCLUDE, is_relative=delimiter == '"'))
     return deps
+
+
+def parse_symbols(relative_path: str, text: str) -> list[CodeSymbol]:
+    extension = Path(relative_path).suffix.lower()
+    if extension == ".py":
+        return parse_python_symbols(text)
+    if extension in {".js", ".jsx", ".ts", ".tsx"}:
+        return parse_javascript_symbols(text)
+    return []
+
+
+def parse_python_symbols(text: str) -> list[CodeSymbol]:
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    lines = text.splitlines()
+    symbols = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            kind = "class" if isinstance(node, ast.ClassDef) else "function"
+            start = max(node.lineno - 1, 0)
+            end = getattr(node, "end_lineno", node.lineno)
+            body = "\n".join(lines[start:end])
+            symbols.append(CodeSymbol(name=node.name, kind=kind, line=node.lineno, complexity=symbol_complexity(body)))
+    return sorted(symbols, key=lambda item: (-item.complexity, item.line, item.name))[:8]
+
+
+def parse_javascript_symbols(text: str) -> list[CodeSymbol]:
+    symbols = []
+    for match in JS_SYMBOL_PATTERN.finditer(strip_javascript_comments(text)):
+        name = next(group for group in match.groups() if group)
+        line = text.count("\n", 0, match.start()) + 1
+        line_text = text.splitlines()[line - 1] if text.splitlines() else ""
+        kind = "class" if "class" in line_text else "function"
+        symbols.append(CodeSymbol(name=name, kind=kind, line=line, complexity=symbol_complexity(line_text)))
+    return sorted(symbols, key=lambda item: (-item.complexity, item.line, item.name))[:8]
+
+
+def symbol_complexity(text: str) -> int:
+    tokens = re.findall(r"\b(if|elif|for|while|case|catch|except|switch)\b|&&|\|\||\?", text)
+    return 1 + len(tokens)

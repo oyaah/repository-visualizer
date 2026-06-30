@@ -3,7 +3,7 @@ from __future__ import annotations
 from app.models import EdgeKind
 import pytest
 
-from app.parsers import clear_dependency_cache, parse_c_dependencies, parse_dependencies, parse_javascript_dependencies, parse_python_dependencies
+from app.parsers import clear_dependency_cache, parse_c_dependencies, parse_dependencies, parse_javascript_dependencies, parse_python_dependencies, parse_symbols
 
 
 def test_parse_python_imports() -> None:
@@ -69,3 +69,18 @@ def test_parse_dependencies_caches_by_content_hash(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr("app.parsers.parse_python_dependencies", fail_parse)
 
     assert parse_dependencies("app.py", "import os\n") == first
+
+
+def test_parse_python_symbols_orders_hotspots() -> None:
+    symbols = parse_symbols("app.py", "def simple():\n    pass\n\ndef complex():\n    if a:\n        pass\n    for item in items:\n        pass\n")
+
+    assert [(symbol.name, symbol.kind) for symbol in symbols[:2]] == [("complex", "function"), ("simple", "function")]
+    assert symbols[0].complexity > symbols[1].complexity
+    assert symbols[0].line == 4
+
+
+def test_parse_javascript_symbols() -> None:
+    symbols = parse_symbols("app.tsx", "export function App() { return null }\nconst load = () => import('./x')\nclass Panel {}\n")
+
+    names = {symbol.name for symbol in symbols}
+    assert {"App", "load", "Panel"} <= names

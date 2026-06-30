@@ -10,6 +10,7 @@ from pathlib import Path
 
 from app.models import (
     AnalyzeRequest,
+    CodeHint,
     CycleSummary,
     EdgeKind,
     EntryPointSummary,
@@ -23,7 +24,7 @@ from app.models import (
     ReportFinding,
     PackageSummary,
 )
-from app.parsers import Dependency, parse_dependencies
+from app.parsers import Dependency, parse_dependencies, parse_symbols
 from app.scanner import ScannedFile, scan_repository
 
 RESOLUTION_EXTENSIONS = ["", ".py", ".js", ".jsx", ".ts", ".tsx", ".c", ".h", ".cc", ".cpp", ".hpp", "/index.js", "/index.ts", "/__init__.py"]
@@ -49,6 +50,8 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
             folder=item.folder,
             extension=item.extension,
             metrics=item.metrics.model_copy(),
+            symbols=parse_symbols(item.relative_path, item.text),
+            hints=detect_file_hints(item),
         )
         for item in scanned_files
     }
@@ -192,6 +195,23 @@ def build_repo_report(root: Path, nodes: list[GraphNode], cycles: list[CycleSumm
                     confidence="medium",
                 )
             )
+
+    hinted_nodes = sorted(
+        (node for node in nodes if node.hints),
+        key=lambda node: (hint_severity_rank(node.hints[0].severity), node.path),
+    )
+    for node in hinted_nodes[:2]:
+        hint = node.hints[0]
+        findings.append(
+            ReportFinding(
+                kind=hint.kind,
+                title=hint.title,
+                file_path=node.path,
+                detail=hint.detail,
+                severity=hint.severity,
+                confidence="medium",
+            )
+        )
 
     hubs = sorted(nodes, key=lambda node: (-node.metrics.dependent_count, node.path))[:2]
     for node in hubs:
@@ -400,7 +420,54 @@ def calculate_risk_score(node: GraphNode) -> int:
     score += min(node.metrics.dependent_count * 5, 20)
     score += min(node.metrics.dependency_count * 3, 10)
     score += min(len(node.unresolved_imports) * 10, 15)
+    score += min(sum(12 for hint in node.hints if hint.kind == "security"), 20)
     return min(score, 100)
+
+
+def detect_file_hints(item: ScannedFile) -> list[CodeHint]:
+    hints = detect_security_hints(item)
+    hints.extend(detect_framework_hints(item))
+    return sorted(hints, key=lambda hint: (hint_severity_rank(hint.severity), hint.line or 0, hint.title))[:8]
+
+
+def detect_security_hints(item: ScannedFile) -> list[CodeHint]:
+    hints: list[CodeHint] = []
+    for line_number, line in enumerate(item.text.splitlines(), start=1):
+        stripped = line.strip()
+        lower = stripped.lower()
+        if not stripped or lower.startswith(("#", "//")):
+            continue
+        if "placeholder" in lower or "example" in lower or "your_" in lower or "<" in stripped:
+            continue
+        if re.search(r"AKIA[0-9A-Z]{16}", stripped) or re.search(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----", stripped):
+            hints.append(CodeHint(kind="security", title="Secret-like value", detail="A credential or private key pattern appears in source.", severity="high", line=line_number))
+        elif re.search(r"(?i)(api_key|apikey|secret|password|passwd|private_key)\s*[:=]\s*['\"][0-9A-Za-z_\-]{16,}['\"]", stripped):
+            hints.append(CodeHint(kind="security", title="Hardcoded secret candidate", detail="A secret-looking assignment appears in source.", severity="high", line=line_number))
+        elif re.search(r"\beval\s*\(|\bexec\s*\(|os\.system\s*\(|shell\s*=\s*True|child_process\.exec\s*\(|dangerouslySetInnerHTML|\bgets\s*\(|\bstrcpy\s*\(", stripped):
+            hints.append(CodeHint(kind="security", title="Unsafe API pattern", detail="A risky execution, shell, DOM, or memory API appears in source.", severity="medium", line=line_number))
+    return hints
+
+
+def detect_framework_hints(item: ScannedFile) -> list[CodeHint]:
+    text = item.text
+    hints: list[CodeHint] = []
+    if item.extension == ".py":
+        if "FastAPI(" in text or "APIRouter(" in text:
+            hints.append(CodeHint(kind="framework", title="FastAPI surface", detail="Defines a FastAPI app or router.", severity="low"))
+        if "Flask(" in text or "@app.route(" in text or "@bp.route(" in text:
+            hints.append(CodeHint(kind="framework", title="Flask surface", detail="Defines a Flask app, blueprint, or route.", severity="low"))
+        if "urlpatterns" in text or "INSTALLED_APPS" in text or "ROOT_URLCONF" in text:
+            hints.append(CodeHint(kind="framework", title="Django configuration surface", detail="Defines Django URL, settings, or app configuration.", severity="low"))
+    if item.extension in {".js", ".jsx", ".ts", ".tsx"}:
+        if "createRoot(" in text or "ReactDOM.render(" in text:
+            hints.append(CodeHint(kind="framework", title="React root", detail="Mounts the React application.", severity="low"))
+        if "express(" in text or ".get(" in text and "req" in text and "res" in text:
+            hints.append(CodeHint(kind="framework", title="Node route surface", detail="Looks like an Express-style route file.", severity="low"))
+    return hints
+
+
+def hint_severity_rank(severity: str) -> int:
+    return {"high": 0, "medium": 1, "low": 2}.get(severity, 3)
 
 
 def find_cycles(nodes: list[GraphNode], edges: list[GraphEdge]) -> list[CycleSummary]:

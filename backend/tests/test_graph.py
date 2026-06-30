@@ -270,3 +270,31 @@ def test_graph_preserves_type_checking_edge_scope(tmp_path: Path) -> None:
 
     edge = next(edge for edge in graph.edges if edge.target == "models.py")
     assert edge.scope.value == "type_checking"
+
+
+def test_graph_attaches_symbol_and_security_hints(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text(
+        "from fastapi import FastAPI\n"
+        "app = FastAPI()\n"
+        "password = 'abc1234567890SECRET'\n"
+        "def risky():\n"
+        "    if value:\n"
+        "        return eval(value)\n",
+        encoding="utf-8",
+    )
+
+    graph = build_graph(tmp_path)
+
+    node = graph.nodes[0]
+    assert node.symbols[0].name == "risky"
+    assert {hint.kind for hint in node.hints} == {"framework", "security"}
+    findings = {(finding.kind, finding.file_path) for finding in graph.repo_report.start_here}
+    assert ("security", "app.py") in findings
+
+
+def test_graph_ignores_obvious_secret_placeholders(tmp_path: Path) -> None:
+    (tmp_path / "config.py").write_text("api_key = 'your_api_key_here'\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    assert graph.nodes[0].hints == []

@@ -9,6 +9,21 @@ export type FileMetrics = {
   dependent_count: number;
 };
 
+export type CodeSymbol = {
+  name: string;
+  kind: string;
+  line: number;
+  complexity: number;
+};
+
+export type CodeHint = {
+  kind: string;
+  title: string;
+  detail: string;
+  severity: string;
+  line: number | null;
+};
+
 export type GraphNode = {
   id: string;
   path: string;
@@ -21,6 +36,8 @@ export type GraphNode = {
   imported_by: string[];
   unresolved_imports: string[];
   external_imports: string[];
+  symbols?: CodeSymbol[];
+  hints?: CodeHint[];
 };
 
 export type GraphEdge = {

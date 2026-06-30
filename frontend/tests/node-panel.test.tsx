@@ -21,7 +21,9 @@ const node: GraphNode = {
   imports: ['src/utils.py'],
   imported_by: ['tests/test_main.py'],
   unresolved_imports: ['.missing'],
-  external_imports: ['os']
+  external_imports: ['os'],
+  symbols: [{ name: 'run', kind: 'function', line: 8, complexity: 5 }],
+  hints: [{ kind: 'security', title: 'Unsafe API pattern', detail: 'A risky API appears in source.', severity: 'medium', line: 10 }]
 };
 
 const graph: GraphResponse = {
@@ -100,6 +102,10 @@ describe('NodePanel', () => {
     expect(screen.getByText('src/utils.py')).toBeInTheDocument();
     expect(screen.getAllByText('tests/test_main.py').length).toBeGreaterThan(0);
     expect(screen.getByText('os')).toBeInTheDocument();
+    expect(screen.getByText('Symbol hotspots')).toBeInTheDocument();
+    expect(screen.getByText(/function run/)).toBeInTheDocument();
+    expect(screen.getByText('Static hints')).toBeInTheDocument();
+    expect(screen.getByText(/Unsafe API pattern/)).toBeInTheDocument();
   });
 
   it('loads summary state when a node is selected', async () => {
