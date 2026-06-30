@@ -37,7 +37,18 @@ const graph: GraphResponse = {
         detail: 'Contains a Python main guard.'
       }
     ],
-    reading_order: ['main.py', 'a.py']
+    reading_order: ['main.py', 'a.py'],
+    orphans: [
+      {
+        kind: 'orphan',
+        title: 'Possibly unused file',
+        file_path: 'orphan.py',
+        detail: 'Nothing imports this file and it is not a detected entry point (5 LoC).',
+        severity: 'low',
+        confidence: 'low',
+        related_files: []
+      }
+    ]
   }
 };
 
@@ -54,6 +65,8 @@ describe('buildMarkdownReport', () => {
     expect(markdown).toContain('1. `main.py`');
     expect(markdown).toContain('`src`: 120 LoC across 2 files');
     expect(markdown).toContain('`a.py` -> `b.py`');
+    expect(markdown).toContain('## Possibly Unused Files');
+    expect(markdown).toContain('orphan.py');
     expect(markdown).toContain('Analysis limited to 2 files');
   });
 
@@ -63,12 +76,13 @@ describe('buildMarkdownReport', () => {
       edges: [],
       folder_summaries: [],
       cycles: [],
-      repo_report: { start_here: [], entry_points: [], reading_order: [] },
+      repo_report: { start_here: [], entry_points: [], reading_order: [], orphans: [] },
       stats: { ...graph.stats, warnings: [] }
     });
 
     expect(markdown).toContain('No obvious hotspots');
     expect(markdown).toContain('No likely entry points');
+    expect(markdown).toContain('No obviously unused files detected.');
     expect(markdown).toContain('Static dependency parsing only');
   });
 });

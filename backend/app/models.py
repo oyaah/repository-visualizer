@@ -100,6 +100,7 @@ class RepoReport(BaseModel):
     start_here: list[ReportFinding] = Field(default_factory=list)
     entry_points: list[EntryPointSummary] = Field(default_factory=list)
     reading_order: list[str] = Field(default_factory=list)
+    orphans: list[ReportFinding] = Field(default_factory=list)
 
 
 class GraphResponse(BaseModel):

@@ -23,7 +23,7 @@ from app.models import (
     ReportFinding,
 )
 from app.parsers import Dependency, parse_dependencies
-from app.scanner import ScannedFile, scan_repository
+from app.scanner import ScannedFile, is_test_like, scan_repository
 
 RESOLUTION_EXTENSIONS = ["", ".py", ".js", ".jsx", ".ts", ".tsx", ".c", ".h", ".cc", ".cpp", ".hpp", "/index.js", "/index.ts", "/__init__.py"]
 
@@ -199,7 +199,35 @@ def build_repo_report(root: Path, nodes: list[GraphNode], cycles: list[CycleSumm
             + [node.path for node in sorted(nodes, key=lambda item: (-item.metrics.dependent_count, item.path))[:3]]
         )
     )
-    return RepoReport(start_here=findings, entry_points=entry_points[:8], reading_order=reading_order[:12])
+    orphans = find_orphans(nodes, entry_points)
+    return RepoReport(start_here=findings, entry_points=entry_points[:8], reading_order=reading_order[:12], orphans=orphans[:10])
+
+
+def find_orphans(nodes: list[GraphNode], entry_points: list[EntryPointSummary]) -> list[ReportFinding]:
+    entry_paths = {entry.file_path for entry in entry_points}
+    orphans: list[ReportFinding] = []
+    for node in sorted(nodes, key=lambda item: (-item.metrics.loc, item.path)):
+        if node.imported_by:
+            continue
+        if node.path in entry_paths or is_package_init(node.path) or is_test_path(node.path):
+            continue
+        orphans.append(
+            ReportFinding(
+                kind="orphan",
+                title="Possibly unused file",
+                file_path=node.path,
+                detail=f"Nothing imports this file and it is not a detected entry point ({node.metrics.loc} LoC). It may be dead code or a manually run script.",
+                severity="low",
+                confidence="low",
+            )
+        )
+    return orphans
+
+
+def is_test_path(path: str) -> bool:
+    relative = Path(path)
+    parts = {part.lower() for part in relative.parts[:-1]}
+    return is_test_like(parts, relative.name.lower())
 
 
 def cycle_detail(files: list[str]) -> str:

@@ -230,6 +230,31 @@ def test_graph_detects_metadata_entry_points(tmp_path: Path) -> None:
     assert ("python_script", "pkg/main.py", "Python script: rv") in entries
 
 
+def test_graph_flags_orphan_files(tmp_path: Path) -> None:
+    (tmp_path / "main.py").write_text('import helper\nif __name__ == "__main__":\n    helper.run()\n', encoding="utf-8")
+    (tmp_path / "helper.py").write_text("def run():\n    return 1\n", encoding="utf-8")
+    (tmp_path / "orphan.py").write_text("VALUE = 2\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    orphans = {finding.file_path for finding in graph.repo_report.orphans}
+    assert "orphan.py" in orphans
+    assert "helper.py" not in orphans  # imported by main.py
+    assert "main.py" not in orphans  # detected entry point
+
+
+def test_graph_orphans_exclude_tests_and_package_init(tmp_path: Path) -> None:
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "test_thing.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    orphans = {finding.file_path for finding in graph.repo_report.orphans}
+    assert "pkg/__init__.py" not in orphans
+    assert "test_thing.py" not in orphans
+
+
 def test_graph_resolves_dynamic_import_edges(tmp_path: Path) -> None:
     (tmp_path / "src").mkdir()
     (tmp_path / "src" / "main.ts").write_text("const lazy = () => import('./lazy');\n", encoding="utf-8")

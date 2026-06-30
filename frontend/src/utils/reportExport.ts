@@ -31,6 +31,13 @@ export function buildMarkdownReport(graph: GraphResponse): string {
     '',
     listOrFallback(graph.repo_report.reading_order.map((path, index) => `${index + 1}. \`${path}\``), '- No reading order generated.'),
     '',
+    '## Possibly Unused Files',
+    '',
+    listOrFallback(
+      graph.repo_report.orphans.map((finding) => `- \`${finding.file_path}\`: ${finding.detail}`),
+      '- No obviously unused files detected.'
+    ),
+    '',
     '## Top Folders',
     '',
     listOrFallback(

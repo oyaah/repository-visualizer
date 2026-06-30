@@ -1,4 +1,4 @@
-import { AlertTriangle, BarChart3, Download, GitMerge, ListTree, Play } from 'lucide-react';
+import { AlertTriangle, BarChart3, Download, GitMerge, ListTree, Play, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { CycleSummary, EntryPointSummary, FolderSummary, GraphNode, GraphResponse, ReportFinding } from '../types/graph';
@@ -48,6 +48,14 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
       <InsightList title="Complexity" icon={<BarChart3 size={15} />} items={insights?.complex ?? []} valueFor={(node) => `Cx ${node.metrics.complexity}`} onSelectNode={onSelectNode} />
       <InsightList title="Dependency hubs" icon={<GitMerge size={15} />} items={insights?.hubs ?? []} valueFor={(node) => `${node.metrics.dependent_count} uses`} onSelectNode={onSelectNode} />
       <InsightList
+        title="Possibly unused"
+        icon={<Trash2 size={15} />}
+        items={insights?.orphans ?? []}
+        valueFor={(node) => `${node.metrics.loc} LoC`}
+        onSelectNode={onSelectNode}
+        fallback="No obviously unused files detected."
+      />
+      <InsightList
         title="Unresolved imports"
         icon={<AlertTriangle size={15} />}
         items={insights?.unresolved ?? []}
@@ -74,6 +82,10 @@ function buildInsights(graph: GraphResponse) {
   const unresolved = topBy(graph.nodes, (node) => node.unresolved_imports.length);
   const cycles = graph.cycles.slice(0, 3);
   const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const orphans = graph.repo_report.orphans
+    .map((finding) => nodeById.get(finding.file_path))
+    .filter((node): node is GraphNode => Boolean(node))
+    .slice(0, 4);
 
   return {
     nodeById,
@@ -85,6 +97,7 @@ function buildInsights(graph: GraphResponse) {
     largest,
     complex,
     hubs,
+    orphans,
     unresolved,
     external: topBy(graph.nodes, (node) => node.external_imports.length)
   };

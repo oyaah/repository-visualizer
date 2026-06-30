@@ -76,6 +76,7 @@ export type RepoReport = {
   start_here: ReportFinding[];
   entry_points: EntryPointSummary[];
   reading_order: string[];
+  orphans: ReportFinding[];
 };
 
 export type GraphResponse = {

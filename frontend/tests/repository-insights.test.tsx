@@ -92,7 +92,8 @@ const graph: GraphResponse = {
         detail: 'Defines a FastAPI app or route.'
       }
     ],
-    reading_order: ['src/main.py', 'src/complex.py', 'tests/test_large.py']
+    reading_order: ['src/main.py', 'src/complex.py', 'tests/test_large.py'],
+    orphans: []
   }
 };
 
@@ -127,6 +128,32 @@ describe('RepositoryInsights', () => {
     expect(screen.getByText('Cx 12')).toBeInTheDocument();
     expect(screen.getAllByText('src/main.py').length).toBeGreaterThan(0);
     expect(screen.getByText('3 uses')).toBeInTheDocument();
+    expect(screen.getByText('Possibly unused')).toBeInTheDocument();
+    expect(screen.getByText('No obviously unused files detected.')).toBeInTheDocument();
+  });
+
+  it('lists possibly-unused files when the report has orphans', () => {
+    const withOrphans: GraphResponse = {
+      ...graph,
+      repo_report: {
+        ...graph.repo_report,
+        orphans: [
+          {
+            kind: 'orphan',
+            title: 'Possibly unused file',
+            file_path: 'src/large.py',
+            detail: 'Nothing imports this file and it is not a detected entry point (120 LoC).',
+            severity: 'low',
+            confidence: 'low',
+            related_files: []
+          }
+        ]
+      }
+    };
+    render(<RepositoryInsights graph={withOrphans} onSelectNode={() => undefined} />);
+
+    expect(screen.getByText('Possibly unused')).toBeInTheDocument();
+    expect(screen.queryByText('No obviously unused files detected.')).not.toBeInTheDocument();
   });
 
   it('selects a node from an insight row', () => {
