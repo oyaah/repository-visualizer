@@ -100,7 +100,7 @@ describe('RepositoryInsights', () => {
   it('ranks repository hotspots and scan stats', () => {
     render(<RepositoryInsights graph={graph} onSelectNode={() => undefined} />);
 
-    expect(screen.getByText('4 files')).toBeInTheDocument();
+    expect(screen.getByText('3/3 source files')).toBeInTheDocument();
     expect(screen.getByText('Edges')).toBeInTheDocument();
     expect(screen.getByText('Skipped')).toBeInTheDocument();
     expect(screen.getByText('Start here')).toBeInTheDocument();

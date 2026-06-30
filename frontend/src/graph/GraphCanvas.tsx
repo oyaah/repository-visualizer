@@ -150,7 +150,7 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
         </label>
         {graph.stats.truncated ? <span className="warning-pill">Limited scan</span> : null}
       </div>
-      {graph.stats.warnings.length ? (
+      {graph.stats.truncated ? (
         <div className="graph-warning" role="status">
           {graph.stats.warnings.join(' ')}
         </div>

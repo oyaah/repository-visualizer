@@ -1,47 +1,51 @@
 # Repository Visualizer
 
-Local codebase map for onboarding, refactoring, and spotting bloated files.
+A local codebase map for onboarding, refactoring, and spotting bloated files. Point it at a
+directory and it statically extracts the dependency graph, ranks the files worth reading first,
+and shows the blast radius of any file you select — without executing the target code.
 
-![Repository Visualizer analyzing Flask with issue filters and prioritized repository insights](docs/assets/repository-visualizer-flask-insights.png)
+![Repository Visualizer mapping its own backend: dependency graph on the left, ranked "Start here" insights on the right](docs/assets/repository-visualizer.png)
 
-## How it helps
+## Why use it
 
-Start with the right-side **Start here** queue, not the whole graph. It ranks the first files worth inspecting: dependency cycles, bloated files, high-complexity files, broken imports, and dependency hubs. The same report also calls out likely entry points and a reading order for onboarding.
+Reading a new codebase file-by-file is slow and you rarely start in the right place. Repository
+Visualizer gives you a map and a reading order instead.
 
-Then click a risky file. The side panel shows local dependencies, who imports it, second-order change impact, and likely affected tests. Switch the graph to **Neighborhood** mode on that file when the full map gets noisy.
-
-Export the Markdown report when you need to hand the analysis to a teammate, paste it into notes, or keep a snapshot before a refactor.
+- **Start with the queue, not the graph.** The right-side **Start here** panel ranks the first
+  files worth inspecting — dependency cycles, bloated files, complexity hotspots, broken imports,
+  and dependency hubs — each with a confidence label. It also lists likely entry points and a
+  suggested reading order for onboarding.
+- **Inspect one file at a time.** Click a risky file and the side panel shows its local
+  dependencies, who imports it, the second-order change impact, and the tests likely affected by a
+  change. Switch the graph to **Neighborhood** mode to focus on just that file's one-hop graph when
+  the full map gets noisy.
+- **Hand off the analysis.** Export a Markdown report to paste into notes, share with a teammate,
+  or keep as a snapshot before a refactor.
 
 ## What it does
 
-- FastAPI backend that scans local directories without executing target code.
-- Static dependency extraction for Python, JavaScript/TypeScript, and C/C++ includes, with support for root `.gitignore`, Python `src/` layouts, and TypeScript path aliases.
-- React Flow canvas with draggable nodes, zoom, pan, search/type filters, full/neighborhood graph modes, persisted browser layouts, and an inspector panel.
-- Repository insights panel with ranked "Start here" actions, likely entry points, reading order, largest files, complexity hotspots, dependency hubs, unresolved references, skipped-file counts, and truncation warnings.
-- Selected-file blast radius showing direct dependents, second-order dependents, and likely affected tests.
-- Markdown report export for sharing the useful analysis outside the app.
-- AI file explanations with OpenAI, cached by file-content hash and prompt version.
+- Scans local directories without running any of the target code.
+- Static dependency extraction for Python, JavaScript/TypeScript, and C/C++ includes — with support
+  for root `.gitignore`, Python `src/` layouts, and TypeScript path aliases.
+- A React Flow canvas with draggable nodes, zoom/pan, search and type filters, full and
+  neighborhood modes, browser-persisted layouts, and an inspector panel.
+- Ranked insights: "Start here" actions, entry points, reading order, largest files, complexity
+  hotspots, dependency hubs, unresolved references, skipped-file counts, and truncation warnings.
+- Per-file blast radius: direct dependents, second-order dependents, and likely affected tests.
+- Optional AI file explanations via OpenAI, cached by file-content hash and prompt version.
 
-## Run the backend
+## Quickstart
+
+Backend (FastAPI):
 
 ```bash
 cd backend
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv && source .venv/bin/activate
 pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
 
-Optional AI summary key:
-
-```bash
-export OPENAI_API_KEY=...
-```
-
-Copy `backend/.env.example` if you prefer loading keys from a local env file.
-Run this backend on your own machine only. It reads local paths by design and is not hardened for public hosting.
-
-## Run the frontend
+Frontend (Vite + React):
 
 ```bash
 cd frontend
@@ -49,15 +53,12 @@ npm install
 npm run dev
 ```
 
-Set `VITE_API_BASE` only if the backend is not running on `http://127.0.0.1:8000`.
+Open `http://127.0.0.1:5173`, enter a local repository path, and analyze. For a quick demo, scan
+`backend/tests/fixtures/sample_repo`.
 
-Open `http://127.0.0.1:5173`, enter a local repository path, and analyze.
-
-For a quick demo, scan:
-
-```text
-backend/tests/fixtures/sample_repo
-```
+Set `VITE_API_BASE` only if the backend is not on `http://127.0.0.1:8000`. To enable AI summaries,
+`export OPENAI_API_KEY=...` (or copy `backend/.env.example`). The backend reads local paths by
+design — run it on your own machine only; it is not hardened for public hosting.
 
 ## Run with Docker
 
@@ -65,45 +66,36 @@ backend/tests/fixtures/sample_repo
 docker compose up --build
 ```
 
-Older Docker installs may need `docker-compose up --build`.
-
-Then open `http://127.0.0.1:5173`. In Docker, the project repository is mounted read-only at:
-
-```text
-/workspace/repository-visualizer
-```
-
-Use that path for the built-in demo scan, or add another bind mount to `docker-compose.yml` for a different local repository.
+Older Docker installs may need `docker-compose up --build`. The project repository is mounted
+read-only at `/workspace/repository-visualizer`; use that path for the demo scan, or add another
+bind mount in `docker-compose.yml` for a different local repository.
 
 ## Large repositories
 
-The analyzer defaults to the first 1000 eligible source files, includes tests, and excludes vendor/generated-looking files. Raise or lower the file cap in the UI depending on the machine and repo size.
+The analyzer defaults to the first 1000 eligible source files, includes tests, and excludes
+vendor/generated-looking files. Adjust the file cap in the UI to match the machine and repo size.
+Each response carries scan metadata — `total_files_found`, `analyzed_files`, `skipped_files`,
+`skipped_reasons`, `truncated`, and `warnings` — which the UI surfaces so a partial scan is never
+mistaken for the whole repo.
 
-The API response includes scan metadata:
+To keep the canvas responsive, filter the rendered graph by path/folder search, file extension, or
+the one-hop neighborhood around the selected file. Dragged node positions are saved per repository
+in browser `localStorage`; use `Reset layout` to return to the automatic layout.
 
-- `stats.total_files_found`
-- `stats.analyzed_files`
-- `stats.skipped_files`
-- `stats.skipped_reasons`
-- `stats.truncated`
-- `stats.warnings`
+See [docs/dogfood.md](docs/dogfood.md) for results from running the analyzer against markupsafe,
+flask, and django.
 
-The frontend displays those values and lets you filter the rendered graph by path/folder search, file extension, or one-hop neighborhood around the selected file. This keeps the app responsive without pretending every massive repo should render as one unbounded canvas.
-
-Dragged node positions are saved in browser `localStorage` per repository and graph shape. Use `Reset layout` in the graph toolbar to return to the automatic layout.
-
-## Test
+## Tests
 
 ```bash
 cd backend && pytest
-cd frontend && npm test
-cd frontend && npm run build
+cd frontend && npm test && npm run build
 ```
 
 ## Known limitations
 
 - Dependency parsing is intentionally static and bounded.
 - External dependencies are tracked as metadata, not rendered as graph nodes.
-- `.gitignore` support covers common root patterns and directory ignores, not every advanced Git ignore edge case.
+- `.gitignore` support covers common root and directory patterns, not every advanced edge case.
 - Very large repos still need background jobs and backend-backed subgraph loading.
 - Full cyclomatic complexity and dependency-rule validation are follow-up work.
