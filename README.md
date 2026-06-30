@@ -9,13 +9,13 @@ It is built for onboarding and refactoring: where to start, what imports what, w
 ## Features
 
 - **Local scanning** through a FastAPI backend. Target code is read, not executed.
-- **Dependency extraction** for Python, JavaScript/TypeScript, TypeScript path aliases, dynamic imports, and C/C++ includes.
-- **Repository insights** with ranked "Start here" findings, confidence labels, entry points, reading order, folder summaries, cycles, large files, complexity hotspots, unresolved imports, and dependency hubs.
+- **Dependency extraction** for Python, JavaScript/TypeScript, TypeScript path aliases, dynamic imports, re-exports, type-checking imports, lazy/local imports, and C/C++ includes.
+- **Repository insights** with ranked "Start here" findings, confidence labels, entry points, reading order, package summaries, folder summaries, cycles, large files, risk scores, symbol hotspots, static security/framework hints, unresolved imports, and dependency hubs.
 - **Large-repo controls** with file caps, truncation warnings, graph search, extension/folder filters, hide-tests, connected-only, hubs, issues, and neighborhood mode.
 - **Selected-file impact** showing direct dependencies, direct dependents, second-order dependents, and likely affected tests.
 - **React Flow canvas** with draggable nodes, zoom/pan, minimap, saved node positions, and reset layout.
 - **OpenAI summaries** cached locally by file content and prompt version. Without `OPENAI_API_KEY`, the graph still works and the UI shows AI disabled.
-- **Markdown export** for onboarding notes, PR planning, or sharing a scan snapshot.
+- **Markdown, CSV, and JSON exports** for onboarding notes, PR planning, spreadsheet review, or sharing a scan snapshot.
 
 ## Tech Stack
 
@@ -28,7 +28,7 @@ It is built for onboarding and refactoring: where to start, what imports what, w
 
 1. The backend scans supported source files under a local path.
 2. Static parsers extract imports/includes and resolve local edges.
-3. The analyzer calculates LoC, size, branch complexity, dependency count, and dependent count.
+3. The analyzer calculates LoC, size, branch complexity, maintainability, risk score, dependency count, and dependent count.
 4. The API returns graph data plus `repo_report` findings.
 5. The frontend renders the graph, filters, selected-file impact, report, and optional summary panel.
 
@@ -123,7 +123,7 @@ Minimal analyze request:
 }
 ```
 
-The analyze response includes `nodes`, `edges`, `folder_summaries`, `cycles`, `repo_report`, and scan `stats` such as `total_files_found`, `analyzed_files`, `skipped_files`, `truncated`, and `warnings`.
+The analyze response includes `nodes`, `edges`, `folder_summaries`, `package_summaries`, `cycles`, `repo_report`, and scan `stats` such as `total_files_found`, `analyzed_files`, `skipped_files`, `truncated`, and `warnings`.
 
 ## Large Repository Behavior
 
@@ -135,7 +135,7 @@ Use these controls for large repos:
 - Turn off **Tests** if test-heavy repos drown out core source.
 - Use graph presets: **Hide tests**, **Connected only**, **Hubs**, and **Issues**.
 - Use **Neighborhood** mode after selecting a risky file.
-- Export the Markdown report when you need a compact review artifact.
+- Export Markdown, CSV, or JSON when you need a compact review artifact.
 
 Dogfood results:
 
@@ -157,17 +157,15 @@ See [docs/dogfood.md](docs/dogfood.md) for what the dogfood pass found and chang
 
 ## Known Limitations
 
-- Static parsing cannot fully classify top-level, lazy, conditional, type-checking, and re-export edges yet.
-- Dynamic framework behavior is only partially visible. Routes, templates, signals, settings, plugin loading, and app registries may not appear as graph edges.
+- Static edge timing is heuristic. It labels top-level, lazy/local, conditional, type-checking, re-export, and dynamic edges, but it is not runtime tracing.
+- Dynamic framework behavior is only partially visible. Some routes, templates, signals, plugin loading, and app registries may not appear as graph edges.
 - External dependencies are stored as metadata, not rendered as nodes.
 - `.gitignore` support covers common root patterns and directory ignores, not every advanced Git ignore case.
-- Very large repos still need backend-backed subgraph loading or streamed output.
+- Very large repos still need backend-backed subgraph loading or streamed output for full-repo interactive browsing beyond the file cap.
 
 ## Useful Next Features
 
-- Edge timing labels: top-level, lazy/local, conditional, type-checking, re-export.
-- Method/class hotspot ranking for giant files.
-- Package-level compressed summaries before raw graph rendering.
-- AST/import extraction cache by file hash.
-- Optional CSV/JSON export in addition to Markdown.
-- Framework-aware layers for routes, templates, signals, settings, and app registries.
+- Backend-backed subgraph loading for very large repositories.
+- Git churn overlays for files that are both risky and frequently changed.
+- More framework-aware layers for templates, signals, plugin loading, and app registries.
+- Optional package-level graph mode in addition to file-level React Flow.

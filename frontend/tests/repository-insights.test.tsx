@@ -46,12 +46,15 @@ const graph: GraphResponse = {
     node('tests/test_large.py', { loc: 200, complexity: 1, dependent_count: 0 })
   ],
   edges: [
-    { id: 'e1', source: 'src/main.py', target: 'src/complex.py', kind: 'import', label: 'import' },
-    { id: 'e2', source: 'src/large.py', target: 'src/main.py', kind: 'import', label: 'import' }
+    { id: 'e1', source: 'src/main.py', target: 'src/complex.py', kind: 'import', label: 'import / top level', scope: 'top_level' },
+    { id: 'e2', source: 'src/large.py', target: 'src/main.py', kind: 'import', label: 'import / top level', scope: 'top_level' }
   ],
   folder_summaries: [
     { name: 'tests', files: 1, loc: 200 },
     { name: 'src', files: 3, loc: 190 }
+  ],
+  package_summaries: [
+    { name: 'src', files: 3, loc: 190, average_complexity: 6, average_risk: 44, dependency_count: 1, dependent_count: 0, highest_risk_files: ['src/complex.py'] }
   ],
   cycles: [{ files: ['src/complex.py', 'src/main.py'], edge_count: 2 }],
   repo_report: {
@@ -101,6 +104,9 @@ describe('RepositoryInsights', () => {
     render(<RepositoryInsights graph={graph} onSelectNode={() => undefined} />);
 
     expect(screen.getByText('3/3 source files')).toBeInTheDocument();
+    expect(screen.getByLabelText('Export Markdown report')).toBeInTheDocument();
+    expect(screen.getByLabelText('Export CSV report')).toBeInTheDocument();
+    expect(screen.getByLabelText('Export JSON report')).toBeInTheDocument();
     expect(screen.getByText('Edges')).toBeInTheDocument();
     expect(screen.getByText('Skipped')).toBeInTheDocument();
     expect(screen.getByText('Start here')).toBeInTheDocument();
@@ -111,8 +117,10 @@ describe('RepositoryInsights', () => {
     expect(screen.getByText('Likely entry points')).toBeInTheDocument();
     expect(screen.getByText('Likely FastAPI app')).toBeInTheDocument();
     expect(screen.getByText('Reading order')).toBeInTheDocument();
+    expect(screen.getByText('Top packages')).toBeInTheDocument();
+    expect(screen.getByText('Risk 44 / 3 files')).toBeInTheDocument();
     expect(screen.getByText('Top folders')).toBeInTheDocument();
-    expect(screen.getByText('src')).toBeInTheDocument();
+    expect(screen.getAllByText('src').length).toBeGreaterThan(1);
     expect(screen.getByText('190 LoC / 3 files')).toBeInTheDocument();
     expect(screen.getByText('tests')).toBeInTheDocument();
     expect(screen.getByText('200 LoC / 1 file')).toBeInTheDocument();

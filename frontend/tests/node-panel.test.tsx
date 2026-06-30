@@ -17,11 +17,13 @@ const node: GraphNode = {
   folder: 'src',
   extension: '.py',
   kind: 'file',
-  metrics: { loc: 12, total_lines: 15, size_bytes: 100, complexity: 4, dependency_count: 1, dependent_count: 2 },
+  metrics: { loc: 12, total_lines: 15, size_bytes: 100, complexity: 4, maintainability: 88, risk_score: 42, dependency_count: 1, dependent_count: 2 },
   imports: ['src/utils.py'],
   imported_by: ['tests/test_main.py'],
   unresolved_imports: ['.missing'],
-  external_imports: ['os']
+  external_imports: ['os'],
+  symbols: [{ name: 'run', kind: 'function', line: 8, complexity: 5 }],
+  hints: [{ kind: 'security', title: 'Unsafe API pattern', detail: 'A risky API appears in source.', severity: 'medium', line: 10 }]
 };
 
 const graph: GraphResponse = {
@@ -65,9 +67,9 @@ const graph: GraphResponse = {
     }
   ],
   edges: [
-    { id: 'src/main.py->src/utils.py:import', source: 'src/main.py', target: 'src/utils.py', kind: 'import', label: 'import' },
-    { id: 'tests/test_main.py->src/main.py:import', source: 'tests/test_main.py', target: 'src/main.py', kind: 'import', label: 'import' },
-    { id: 'tests/test_flow.py->tests/test_main.py:import', source: 'tests/test_flow.py', target: 'tests/test_main.py', kind: 'import', label: 'import' }
+    { id: 'src/main.py->src/utils.py:import:top_level', source: 'src/main.py', target: 'src/utils.py', kind: 'import', label: 'import / top level', scope: 'top_level' },
+    { id: 'tests/test_main.py->src/main.py:import:top_level', source: 'tests/test_main.py', target: 'src/main.py', kind: 'import', label: 'import / top level', scope: 'top_level' },
+    { id: 'tests/test_flow.py->tests/test_main.py:import:top_level', source: 'tests/test_flow.py', target: 'tests/test_main.py', kind: 'import', label: 'import / top level', scope: 'top_level' }
   ],
   folder_summaries: [],
   cycles: [],
@@ -97,9 +99,14 @@ describe('NodePanel', () => {
     render(<NodePanel rootPath="/tmp/repo" node={node} graph={graph} />);
     expect(screen.getByText('main.py')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
     expect(screen.getByText('src/utils.py')).toBeInTheDocument();
     expect(screen.getAllByText('tests/test_main.py').length).toBeGreaterThan(0);
     expect(screen.getByText('os')).toBeInTheDocument();
+    expect(screen.getByText('Symbol hotspots')).toBeInTheDocument();
+    expect(screen.getByText(/function run/)).toBeInTheDocument();
+    expect(screen.getByText('Static hints')).toBeInTheDocument();
+    expect(screen.getByText(/Unsafe API pattern/)).toBeInTheDocument();
   });
 
   it('loads summary state when a node is selected', async () => {

@@ -84,3 +84,4 @@ def test_metrics_count_loc_and_complexity() -> None:
     assert metrics.total_lines == 4
     assert metrics.size_bytes == 42
     assert metrics.complexity > 1
+    assert 0 <= metrics.maintainability <= 100

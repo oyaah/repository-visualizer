@@ -31,6 +31,6 @@ export function toFlowEdges(edges: GraphEdge[]): Edge[] {
     source: edge.source,
     target: edge.target,
     animated: edge.kind === 'dynamic_import',
-    label: edge.kind === 'include' ? 'include' : undefined
+    label: edge.scope === 'top_level' ? undefined : edge.scope.replace('_', ' ')
   }));
 }

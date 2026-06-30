@@ -81,12 +81,14 @@ export function NodePanel({ rootPath, node, graph }: Props) {
       <dl className="metrics-grid">
         <Metric label="LoC" value={node.metrics.loc} />
         <Metric label="Complexity" value={node.metrics.complexity} />
-        <Metric label="Imports" value={node.metrics.dependency_count} />
+        <Metric label="Risk" value={node.metrics.risk_score ?? 0} />
         <Metric label="Used by" value={node.metrics.dependent_count} />
       </dl>
 
       <Section title="Dependencies" items={node.imports} fallback="No local dependencies." />
       <Section title="Dependents" items={node.imported_by} fallback="No local dependents." />
+      <SymbolSection symbols={node.symbols ?? []} />
+      <HintSection hints={node.hints ?? []} />
       {impact ? (
         <section className="panel-section impact-section">
           <h3>Change impact</h3>
@@ -172,6 +174,44 @@ function Section({ title, items, fallback }: { title: string; items: string[]; f
         </ul>
       ) : (
         <p>{fallback}</p>
+      )}
+    </section>
+  );
+}
+
+function SymbolSection({ symbols }: { symbols: NonNullable<GraphNode['symbols']> }) {
+  return (
+    <section className="panel-section">
+      <h3>Symbol hotspots</h3>
+      {symbols.length ? (
+        <ul>
+          {symbols.slice(0, 5).map((symbol) => (
+            <li key={`${symbol.kind}:${symbol.name}:${symbol.line}`}>
+              {symbol.kind} {symbol.name} <span>line {symbol.line}, Cx {symbol.complexity}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No symbol hotspots found.</p>
+      )}
+    </section>
+  );
+}
+
+function HintSection({ hints }: { hints: NonNullable<GraphNode['hints']> }) {
+  return (
+    <section className="panel-section">
+      <h3>Static hints</h3>
+      {hints.length ? (
+        <ul>
+          {hints.map((hint) => (
+            <li key={`${hint.kind}:${hint.title}:${hint.line ?? 0}`}>
+              {hint.title} <span>{hint.severity}{hint.line ? `, line ${hint.line}` : ''}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p>No static hints found.</p>
       )}
     </section>
   );

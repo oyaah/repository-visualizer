@@ -38,6 +38,24 @@ export function buildMarkdownReport(graph: GraphResponse): string {
       '- No folders found.'
     ),
     '',
+    '## Top Packages',
+    '',
+    listOrFallback(
+      (graph.package_summaries ?? []).slice(0, 8).map((summary) => `- \`${summary.name}\`: risk ${summary.average_risk}/100, ${summary.loc} LoC, ${summary.dependency_count} outgoing package deps, ${summary.dependent_count} incoming package deps`),
+      '- No package summaries found.'
+    ),
+    '',
+    '## Highest Risk Files',
+    '',
+    listOrFallback(
+      [...graph.nodes]
+        .sort((a, b) => (b.metrics.risk_score ?? 0) - (a.metrics.risk_score ?? 0) || a.path.localeCompare(b.path))
+        .slice(0, 8)
+        .filter((node) => (node.metrics.risk_score ?? 0) > 0)
+        .map((node) => `- \`${node.path}\`: risk ${node.metrics.risk_score}/100, maintainability ${node.metrics.maintainability ?? 'n/a'}, ${node.metrics.loc} LoC, Cx ${node.metrics.complexity}`),
+      '- No risk signals found.'
+    ),
+    '',
     '## Cycles',
     '',
     listOrFallback(
@@ -54,11 +72,49 @@ export function buildMarkdownReport(graph: GraphResponse): string {
 }
 
 export function downloadMarkdownReport(graph: GraphResponse): void {
-  const blob = new Blob([buildMarkdownReport(graph)], { type: 'text/markdown;charset=utf-8' });
+  downloadText('repository-report.md', buildMarkdownReport(graph), 'text/markdown;charset=utf-8');
+}
+
+export function buildCsvReport(graph: GraphResponse): string {
+  const rows = [
+    ['path', 'folder', 'extension', 'loc', 'complexity', 'maintainability', 'risk_score', 'dependencies', 'dependents', 'unresolved_imports', 'external_imports', 'symbols', 'hints'],
+    ...graph.nodes.map((node) => [
+      node.path,
+      node.folder || 'root',
+      node.extension,
+      String(node.metrics.loc),
+      String(node.metrics.complexity),
+      String(node.metrics.maintainability ?? ''),
+      String(node.metrics.risk_score ?? ''),
+      String(node.metrics.dependency_count),
+      String(node.metrics.dependent_count),
+      node.unresolved_imports.join('; '),
+      node.external_imports.join('; '),
+      (node.symbols ?? []).map((symbol) => `${symbol.kind}:${symbol.name}:${symbol.line}`).join('; '),
+      (node.hints ?? []).map((hint) => `${hint.kind}:${hint.title}`).join('; ')
+    ])
+  ];
+  return rows.map((row) => row.map(csvCell).join(',')).join('\n') + '\n';
+}
+
+export function buildJsonReport(graph: GraphResponse): string {
+  return JSON.stringify(graph, null, 2) + '\n';
+}
+
+export function downloadCsvReport(graph: GraphResponse): void {
+  downloadText('repository-report.csv', buildCsvReport(graph), 'text/csv;charset=utf-8');
+}
+
+export function downloadJsonReport(graph: GraphResponse): void {
+  downloadText('repository-report.json', buildJsonReport(graph), 'application/json;charset=utf-8');
+}
+
+function downloadText(filename: string, text: string, type: string): void {
+  const blob = new Blob([text], { type });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'repository-report.md';
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -67,4 +123,8 @@ export function downloadMarkdownReport(graph: GraphResponse): void {
 
 function listOrFallback(items: string[], fallback: string): string {
   return items.length ? items.join('\n') : fallback;
+}
+
+function csvCell(value: string): string {
+  return /[",\n]/.test(value) ? `"${value.split('"').join('""')}"` : value;
 }

@@ -16,6 +16,15 @@ class EdgeKind(str, Enum):
     DYNAMIC_IMPORT = "dynamic_import"
 
 
+class EdgeScope(str, Enum):
+    TOP_LEVEL = "top_level"
+    LAZY = "lazy"
+    CONDITIONAL = "conditional"
+    TYPE_CHECKING = "type_checking"
+    RE_EXPORT = "re_export"
+    DYNAMIC = "dynamic"
+
+
 class AnalyzeRequest(BaseModel):
     root_path: str = Field(..., min_length=1)
     max_files: int = Field(default=1000, ge=1, le=10000)
@@ -33,8 +42,25 @@ class FileMetrics(BaseModel):
     total_lines: int
     size_bytes: int
     complexity: int
+    maintainability: float = 100.0
+    risk_score: int = 0
     dependency_count: int = 0
     dependent_count: int = 0
+
+
+class CodeSymbol(BaseModel):
+    name: str
+    kind: str
+    line: int
+    complexity: int
+
+
+class CodeHint(BaseModel):
+    kind: str
+    title: str
+    detail: str
+    severity: str
+    line: int | None = None
 
 
 class GraphNode(BaseModel):
@@ -49,6 +75,8 @@ class GraphNode(BaseModel):
     imported_by: list[str] = Field(default_factory=list)
     unresolved_imports: list[str] = Field(default_factory=list)
     external_imports: list[str] = Field(default_factory=list)
+    symbols: list[CodeSymbol] = Field(default_factory=list)
+    hints: list[CodeHint] = Field(default_factory=list)
 
 
 class GraphEdge(BaseModel):
@@ -57,6 +85,7 @@ class GraphEdge(BaseModel):
     target: str
     kind: EdgeKind
     label: str
+    scope: EdgeScope = EdgeScope.TOP_LEVEL
 
 
 class GraphStats(BaseModel):
@@ -72,6 +101,17 @@ class FolderSummary(BaseModel):
     name: str
     files: int
     loc: int
+
+
+class PackageSummary(BaseModel):
+    name: str
+    files: int
+    loc: int
+    average_complexity: float
+    average_risk: float
+    dependency_count: int
+    dependent_count: int
+    highest_risk_files: list[str] = Field(default_factory=list)
 
 
 class CycleSummary(BaseModel):
@@ -107,6 +147,7 @@ class GraphResponse(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
     folder_summaries: list[FolderSummary] = Field(default_factory=list)
+    package_summaries: list[PackageSummary] = Field(default_factory=list)
     cycles: list[CycleSummary] = Field(default_factory=list)
     repo_report: RepoReport = Field(default_factory=RepoReport)
     ignored_directories: list[str]

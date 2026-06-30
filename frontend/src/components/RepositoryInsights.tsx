@@ -1,8 +1,8 @@
 import { AlertTriangle, BarChart3, Download, GitMerge, ListTree, Play } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import type { CycleSummary, EntryPointSummary, FolderSummary, GraphNode, GraphResponse, ReportFinding } from '../types/graph';
-import { downloadMarkdownReport } from '../utils/reportExport';
+import type { CycleSummary, EntryPointSummary, FolderSummary, GraphNode, GraphResponse, PackageSummary, ReportFinding } from '../types/graph';
+import { downloadCsvReport, downloadJsonReport, downloadMarkdownReport } from '../utils/reportExport';
 
 type Props = {
   graph: GraphResponse | null;
@@ -29,7 +29,13 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
           <h2>Insights</h2>
         </div>
         <div className="insights-actions">
-          <button type="button" onClick={() => downloadMarkdownReport(graph)} aria-label="Export Markdown report">
+          <button type="button" onClick={() => downloadMarkdownReport(graph)} aria-label="Export Markdown report" title="Export Markdown">
+            <Download size={15} />
+          </button>
+          <button type="button" onClick={() => downloadCsvReport(graph)} aria-label="Export CSV report" title="Export CSV">
+            <Download size={15} />
+          </button>
+          <button type="button" onClick={() => downloadJsonReport(graph)} aria-label="Export JSON report" title="Export JSON">
             <Download size={15} />
           </button>
           <span>{graph.stats.analyzed_files}/{graph.stats.total_files_found} source files</span>
@@ -42,6 +48,7 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
       <StartHere items={insights?.startHere ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <EntryPointList entries={insights?.entryPoints ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <ReadingOrder paths={insights?.readingOrder ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
+      <PackageList packages={insights?.packages ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <FolderList folders={insights?.folders ?? []} />
       <CycleList cycles={insights?.cycles ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <InsightList title="Largest files" icon={<ListTree size={15} />} items={insights?.largest ?? []} valueFor={(node) => `${node.metrics.loc} LoC`} onSelectNode={onSelectNode} />
@@ -80,6 +87,7 @@ function buildInsights(graph: GraphResponse) {
     startHere: graph.repo_report.start_here.slice(0, 4),
     entryPoints: graph.repo_report.entry_points.slice(0, 4),
     readingOrder: graph.repo_report.reading_order.slice(0, 6),
+    packages: (graph.package_summaries ?? []).slice(0, 4),
     folders: graph.folder_summaries.slice(0, 3),
     cycles,
     largest,
@@ -262,6 +270,39 @@ function FolderList({ folders }: { folders: FolderSummary[] }) {
         </ol>
       ) : (
         <p>No folders found.</p>
+      )}
+    </section>
+  );
+}
+
+function PackageList({
+  packages,
+  nodeById,
+  onSelectNode
+}: {
+  packages: PackageSummary[];
+  nodeById: Map<string, GraphNode>;
+  onSelectNode: (node: GraphNode) => void;
+}) {
+  return (
+    <section className="insight-section">
+      <h3><ListTree size={15} />Top packages</h3>
+      {packages.length ? (
+        <ol>
+          {packages.map((item) => {
+            const node = nodeById.get(item.highest_risk_files[0] ?? '');
+            return (
+              <li key={item.name}>
+                <button type="button" onClick={() => node && onSelectNode(node)}>
+                  <span>{item.name}</span>
+                  <strong>Risk {item.average_risk} / {item.files} files</strong>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
+      ) : (
+        <p>No package summaries found.</p>
       )}
     </section>
   );

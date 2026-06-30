@@ -130,6 +130,24 @@ def test_graph_returns_folder_summaries(tmp_path: Path) -> None:
     assert summaries["root"].files == 1
 
 
+def test_graph_returns_package_summaries_and_risk_scores(tmp_path: Path) -> None:
+    (tmp_path / "api").mkdir()
+    (tmp_path / "core").mkdir()
+    (tmp_path / "api" / "routes.py").write_text("import core.service\nif value:\n    pass\n", encoding="utf-8")
+    (tmp_path / "core" / "service.py").write_text("if a:\n    pass\nif b:\n    pass\n", encoding="utf-8")
+    (tmp_path / "core" / "model.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    risky = next(node for node in graph.nodes if node.path == "core/service.py")
+    assert risky.metrics.risk_score > 0
+    packages = {summary.name: summary for summary in graph.package_summaries}
+    assert packages["core"].files == 2
+    assert packages["core"].loc >= 3
+    assert "core/service.py" in packages["core"].highest_risk_files
+    assert packages["api"].dependency_count == 1
+
+
 def test_graph_deduplicates_repeated_import_edges(tmp_path: Path) -> None:
     (tmp_path / "a.py").write_text("import b\nimport b\n", encoding="utf-8")
     (tmp_path / "b.py").write_text("VALUE = 1\n", encoding="utf-8")
@@ -239,3 +257,52 @@ def test_graph_resolves_dynamic_import_edges(tmp_path: Path) -> None:
 
     edges = {(edge.source, edge.target, edge.kind.value) for edge in graph.edges}
     assert ("src/main.ts", "src/lazy.ts", "dynamic_import") in edges
+    edge = graph.edges[0]
+    assert edge.scope.value == "dynamic"
+    assert "dynamic" in edge.label
+
+
+def test_graph_preserves_type_checking_edge_scope(tmp_path: Path) -> None:
+    (tmp_path / "models.py").write_text("class User: pass\n", encoding="utf-8")
+    (tmp_path / "service.py").write_text("from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import models\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    edge = next(edge for edge in graph.edges if edge.target == "models.py")
+    assert edge.scope.value == "type_checking"
+
+
+def test_graph_attaches_symbol_and_security_hints(tmp_path: Path) -> None:
+    (tmp_path / "app.py").write_text(
+        "from fastapi import FastAPI\n"
+        "app = FastAPI()\n"
+        "password = 'abc1234567890SECRET'\n"
+        "def risky():\n"
+        "    if value:\n"
+        "        return eval(value)\n",
+        encoding="utf-8",
+    )
+
+    graph = build_graph(tmp_path)
+
+    node = graph.nodes[0]
+    assert node.symbols[0].name == "risky"
+    assert {hint.kind for hint in node.hints} == {"framework", "security"}
+    findings = {(finding.kind, finding.file_path) for finding in graph.repo_report.start_here}
+    assert ("security", "app.py") in findings
+
+
+def test_graph_ignores_obvious_secret_placeholders(tmp_path: Path) -> None:
+    (tmp_path / "config.py").write_text("api_key = 'your_api_key_here'\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    assert graph.nodes[0].hints == []
+
+
+def test_graph_security_hint_placeholder_filter_does_not_hide_unsafe_code(tmp_path: Path) -> None:
+    (tmp_path / "unsafe.py").write_text("if value < 10:\n    eval(value)\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    assert any(hint.title == "Unsafe API pattern" for hint in graph.nodes[0].hints)
