@@ -85,6 +85,7 @@ class ReportFinding(BaseModel):
     file_path: str
     detail: str
     severity: str
+    confidence: str = "medium"
     related_files: list[str] = Field(default_factory=list)
 
 

@@ -171,6 +171,20 @@ def test_graph_returns_actionable_repo_report(tmp_path: Path) -> None:
     assert graph.repo_report.reading_order[0] in {"a.py", "shared.py"}
 
 
+def test_graph_marks_package_init_hubs_as_api_facades(tmp_path: Path) -> None:
+    (tmp_path / "pkg").mkdir()
+    (tmp_path / "pkg" / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8")
+    for name in ("one.py", "two.py", "three.py"):
+        (tmp_path / name).write_text("import pkg\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    facade = next(finding for finding in graph.repo_report.start_here if finding.file_path == "pkg/__init__.py")
+    assert facade.kind == "api_facade"
+    assert facade.confidence == "medium"
+    assert "public surface" in facade.detail
+
+
 def test_graph_detects_likely_entry_points(tmp_path: Path) -> None:
     (tmp_path / "api.py").write_text("from fastapi import FastAPI\napp = FastAPI()\n", encoding="utf-8")
     (tmp_path / "cli.py").write_text('if __name__ == "__main__":\n    print("ok")\n', encoding="utf-8")

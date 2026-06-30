@@ -25,6 +25,7 @@ const graph: GraphResponse = {
         file_path: 'a.py',
         detail: '2 files import each other; change these carefully.',
         severity: 'high',
+        confidence: 'high',
         related_files: ['a.py', 'b.py']
       }
     ],
@@ -48,6 +49,7 @@ describe('buildMarkdownReport', () => {
     expect(markdown).toContain('Root: `/tmp/repo`');
     expect(markdown).toContain('- Files analyzed: 2 / 3');
     expect(markdown).toContain('**Dependency cycle**');
+    expect(markdown).toContain('high confidence');
     expect(markdown).toContain('**Likely Python CLI**');
     expect(markdown).toContain('1. `main.py`');
     expect(markdown).toContain('`src`: 120 LoC across 2 files');
