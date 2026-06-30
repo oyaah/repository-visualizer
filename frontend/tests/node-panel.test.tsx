@@ -65,9 +65,9 @@ const graph: GraphResponse = {
     }
   ],
   edges: [
-    { id: 'src/main.py->src/utils.py:import', source: 'src/main.py', target: 'src/utils.py', kind: 'import', label: 'import' },
-    { id: 'tests/test_main.py->src/main.py:import', source: 'tests/test_main.py', target: 'src/main.py', kind: 'import', label: 'import' },
-    { id: 'tests/test_flow.py->tests/test_main.py:import', source: 'tests/test_flow.py', target: 'tests/test_main.py', kind: 'import', label: 'import' }
+    { id: 'src/main.py->src/utils.py:import:top_level', source: 'src/main.py', target: 'src/utils.py', kind: 'import', label: 'import / top level', scope: 'top_level' },
+    { id: 'tests/test_main.py->src/main.py:import:top_level', source: 'tests/test_main.py', target: 'src/main.py', kind: 'import', label: 'import / top level', scope: 'top_level' },
+    { id: 'tests/test_flow.py->tests/test_main.py:import:top_level', source: 'tests/test_flow.py', target: 'tests/test_main.py', kind: 'import', label: 'import / top level', scope: 'top_level' }
   ],
   folder_summaries: [],
   cycles: [],

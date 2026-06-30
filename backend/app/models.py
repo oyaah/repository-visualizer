@@ -16,6 +16,15 @@ class EdgeKind(str, Enum):
     DYNAMIC_IMPORT = "dynamic_import"
 
 
+class EdgeScope(str, Enum):
+    TOP_LEVEL = "top_level"
+    LAZY = "lazy"
+    CONDITIONAL = "conditional"
+    TYPE_CHECKING = "type_checking"
+    RE_EXPORT = "re_export"
+    DYNAMIC = "dynamic"
+
+
 class AnalyzeRequest(BaseModel):
     root_path: str = Field(..., min_length=1)
     max_files: int = Field(default=1000, ge=1, le=10000)
@@ -57,6 +66,7 @@ class GraphEdge(BaseModel):
     target: str
     kind: EdgeKind
     label: str
+    scope: EdgeScope = EdgeScope.TOP_LEVEL
 
 
 class GraphStats(BaseModel):

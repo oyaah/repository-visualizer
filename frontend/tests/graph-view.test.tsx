@@ -56,7 +56,7 @@ const graph: GraphResponse = {
       external_imports: []
     }
   ],
-  edges: [{ id: 'e1', source: 'src/main.py', target: 'src/utils.py', kind: 'import', label: 'import' }],
+  edges: [{ id: 'e1', source: 'src/main.py', target: 'src/utils.py', kind: 'import', label: 'import / top level', scope: 'top_level' }],
   folder_summaries: [{ name: 'src', files: 2, loc: 7 }],
   cycles: [],
   repo_report: {
@@ -135,7 +135,7 @@ const graphWithPresets: GraphResponse = {
   ],
   edges: [
     ...graph.edges,
-    { id: 'e2', source: 'tests/test_main.py', target: 'src/main.py', kind: 'import', label: 'import' }
+    { id: 'e2', source: 'tests/test_main.py', target: 'src/main.py', kind: 'import', label: 'import / top level', scope: 'top_level' }
   ]
 };
 

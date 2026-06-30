@@ -239,3 +239,16 @@ def test_graph_resolves_dynamic_import_edges(tmp_path: Path) -> None:
 
     edges = {(edge.source, edge.target, edge.kind.value) for edge in graph.edges}
     assert ("src/main.ts", "src/lazy.ts", "dynamic_import") in edges
+    edge = graph.edges[0]
+    assert edge.scope.value == "dynamic"
+    assert "dynamic" in edge.label
+
+
+def test_graph_preserves_type_checking_edge_scope(tmp_path: Path) -> None:
+    (tmp_path / "models.py").write_text("class User: pass\n", encoding="utf-8")
+    (tmp_path / "service.py").write_text("from typing import TYPE_CHECKING\nif TYPE_CHECKING:\n    import models\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    edge = next(edge for edge in graph.edges if edge.target == "models.py")
+    assert edge.scope.value == "type_checking"

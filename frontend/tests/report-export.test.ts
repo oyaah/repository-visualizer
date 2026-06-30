@@ -14,7 +14,7 @@ const graph: GraphResponse = {
     warnings: ['Analysis limited to 2 files out of 3 eligible files.']
   },
   nodes: [],
-  edges: [{ id: 'a.py->b.py:import', source: 'a.py', target: 'b.py', kind: 'import', label: 'import' }],
+  edges: [{ id: 'a.py->b.py:import:top_level', source: 'a.py', target: 'b.py', kind: 'import', label: 'import / top level', scope: 'top_level' }],
   folder_summaries: [{ name: 'src', files: 2, loc: 120 }],
   cycles: [{ files: ['a.py', 'b.py'], edge_count: 2 }],
   repo_report: {

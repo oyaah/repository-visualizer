@@ -46,8 +46,8 @@ const graph: GraphResponse = {
     node('tests/test_large.py', { loc: 200, complexity: 1, dependent_count: 0 })
   ],
   edges: [
-    { id: 'e1', source: 'src/main.py', target: 'src/complex.py', kind: 'import', label: 'import' },
-    { id: 'e2', source: 'src/large.py', target: 'src/main.py', kind: 'import', label: 'import' }
+    { id: 'e1', source: 'src/main.py', target: 'src/complex.py', kind: 'import', label: 'import / top level', scope: 'top_level' },
+    { id: 'e2', source: 'src/large.py', target: 'src/main.py', kind: 'import', label: 'import / top level', scope: 'top_level' }
   ],
   folder_summaries: [
     { name: 'tests', files: 1, loc: 200 },

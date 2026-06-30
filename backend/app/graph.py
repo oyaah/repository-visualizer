@@ -58,7 +58,7 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
         for dep in parse_dependencies(item.relative_path, item.text):
             target = resolve_dependency(item, dep, by_path, ts_aliases)
             if target:
-                edge_id = f"{item.relative_path}->{target}:{dep.kind.value}"
+                edge_id = f"{item.relative_path}->{target}:{dep.kind.value}:{dep.scope.value}"
                 if edge_id in edge_ids:
                     continue
                 edge_ids.add(edge_id)
@@ -67,7 +67,8 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
                     source=item.relative_path,
                     target=target,
                     kind=dep.kind,
-                    label=dep.kind.value.replace("_", " "),
+                    label=f"{dep.kind.value.replace('_', ' ')} / {dep.scope.value.replace('_', ' ')}",
+                    scope=dep.scope,
                 )
                 edges.append(edge)
                 nodes[item.relative_path].imports.append(target)

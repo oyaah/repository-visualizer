@@ -27,6 +27,7 @@ export type GraphEdge = {
   target: string;
   kind: 'import' | 'include' | 'dynamic_import';
   label: string;
+  scope: 'top_level' | 'lazy' | 'conditional' | 'type_checking' | 're_export' | 'dynamic';
 };
 
 export type AnalyzeOptions = {
