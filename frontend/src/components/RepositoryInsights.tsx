@@ -2,7 +2,7 @@ import { AlertTriangle, BarChart3, Download, GitMerge, ListTree, Play } from 'lu
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { CycleSummary, EntryPointSummary, FolderSummary, GraphNode, GraphResponse, ReportFinding } from '../types/graph';
-import { downloadMarkdownReport } from '../utils/reportExport';
+import { downloadCsvReport, downloadJsonReport, downloadMarkdownReport } from '../utils/reportExport';
 
 type Props = {
   graph: GraphResponse | null;
@@ -29,7 +29,13 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
           <h2>Insights</h2>
         </div>
         <div className="insights-actions">
-          <button type="button" onClick={() => downloadMarkdownReport(graph)} aria-label="Export Markdown report">
+          <button type="button" onClick={() => downloadMarkdownReport(graph)} aria-label="Export Markdown report" title="Export Markdown">
+            <Download size={15} />
+          </button>
+          <button type="button" onClick={() => downloadCsvReport(graph)} aria-label="Export CSV report" title="Export CSV">
+            <Download size={15} />
+          </button>
+          <button type="button" onClick={() => downloadJsonReport(graph)} aria-label="Export JSON report" title="Export JSON">
             <Download size={15} />
           </button>
           <span>{graph.stats.analyzed_files}/{graph.stats.total_files_found} source files</span>

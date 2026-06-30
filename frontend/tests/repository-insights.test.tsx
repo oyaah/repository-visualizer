@@ -101,6 +101,9 @@ describe('RepositoryInsights', () => {
     render(<RepositoryInsights graph={graph} onSelectNode={() => undefined} />);
 
     expect(screen.getByText('3/3 source files')).toBeInTheDocument();
+    expect(screen.getByLabelText('Export Markdown report')).toBeInTheDocument();
+    expect(screen.getByLabelText('Export CSV report')).toBeInTheDocument();
+    expect(screen.getByLabelText('Export JSON report')).toBeInTheDocument();
     expect(screen.getByText('Edges')).toBeInTheDocument();
     expect(screen.getByText('Skipped')).toBeInTheDocument();
     expect(screen.getByText('Start here')).toBeInTheDocument();
