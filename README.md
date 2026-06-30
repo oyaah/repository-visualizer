@@ -1,28 +1,57 @@
 # Repository Visualizer
 
-Local codebase map for onboarding, refactoring, and spotting bloated files.
+Repository Visualizer is a local-first codebase understanding tool. It scans a local repository, builds an interactive dependency graph, ranks files worth reading first, shows change impact for selected files, and optionally uses OpenAI to summarize source files.
+
+It is built for onboarding and refactoring, not for hosted repository management. The goal is simple: point a developer at a large unfamiliar repo and answer:
+
+- Where should I start reading?
+- Which files are risky or bloated?
+- What imports what?
+- What could break if I change this file?
+- Which source files look like entry points?
 
 ![Repository Visualizer analyzing Flask with issue filters and prioritized repository insights](docs/assets/repository-visualizer-flask-insights.png)
 
-## How it helps
+## Features
 
-Start with the right-side **Start here** queue, not the whole graph. It ranks the first files worth inspecting: dependency cycles, bloated files, high-complexity files, broken imports, and dependency hubs. The same report also calls out likely entry points and a reading order for onboarding.
+- **Local repository scanning** with FastAPI. The target code is read statically and is not executed.
+- **Dependency extraction** for Python imports, JavaScript/TypeScript imports, dynamic imports, TypeScript path aliases, and C/C++ includes.
+- **Repository insights** with ranked Start here findings, confidence labels, likely entry points, reading order, folder summaries, cycles, large files, complexity hotspots, unresolved imports, and dependency hubs.
+- **Large-repo controls** with source-file caps, truncation warnings, graph search, extension/folder filters, issue/hub presets, hide-tests preset, connected-only preset, and neighborhood mode.
+- **Selected-file blast radius** showing local dependencies, direct dependents, second-order dependents, and likely affected tests.
+- **React Flow graph canvas** with draggable nodes, zoom/pan, minimap, saved node positions, and reset layout.
+- **OpenAI-only file summaries** cached locally by file content and prompt version. If no `OPENAI_API_KEY` is set, the graph still works and the UI shows AI disabled.
+- **Markdown report export** for onboarding notes, PR planning, or sharing a snapshot outside the app.
+- **Dogfood evidence** from `markupsafe`, `flask`, and `django` in [`docs/dogfood`](docs/dogfood).
 
-Then click a risky file. The side panel shows local dependencies, who imports it, second-order change impact, and likely affected tests. Switch the graph to **Neighborhood** mode on that file when the full map gets noisy.
+## Tech Stack
 
-Export the Markdown report when you need to hand the analysis to a teammate, paste it into notes, or keep a snapshot before a refactor.
+- Backend: Python, FastAPI, Pydantic, Uvicorn, httpx, SQLite cache.
+- Frontend: React, TypeScript, Vite, React Flow, Dagre, Lucide icons.
+- Testing: Pytest, Vitest, TypeScript build.
+- Runtime model: local backend + local browser UI. No database server required.
 
-## What it does
+## How It Works
 
-- FastAPI backend that scans local directories without executing target code.
-- Static dependency extraction for Python, JavaScript/TypeScript, and C/C++ includes, with support for root `.gitignore`, Python `src/` layouts, and TypeScript path aliases.
-- React Flow canvas with draggable nodes, zoom, pan, search/type filters, full/neighborhood graph modes, persisted browser layouts, and an inspector panel.
-- Repository insights panel with ranked "Start here" actions, likely entry points, reading order, largest files, complexity hotspots, dependency hubs, unresolved references, skipped-file counts, and truncation warnings.
-- Selected-file blast radius showing direct dependents, second-order dependents, and likely affected tests.
-- Markdown report export for sharing the useful analysis outside the app.
-- AI file explanations with OpenAI, cached by file-content hash and prompt version.
+1. The backend scans supported source files under a local path.
+2. Static parsers extract imports/includes and resolve local edges.
+3. The analyzer calculates file metrics such as LoC, size, branch complexity, dependency count, and dependent count.
+4. The backend returns graph data plus a `repo_report` containing prioritized findings and likely entry points.
+5. The frontend renders the graph, report, filters, selected-file impact, and optional OpenAI summary panel.
 
-## Run the backend
+## Requirements
+
+- Python 3.11 or newer. The project is tested with Python 3.13.
+- Node.js 22 or newer.
+- npm.
+- Optional: Docker and Docker Compose.
+- Optional: `OPENAI_API_KEY` for AI summaries.
+
+The target repository must be readable from the machine running the backend.
+
+## Run Locally
+
+Start the backend:
 
 ```bash
 cd backend
@@ -32,16 +61,7 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
 
-Optional AI summary key:
-
-```bash
-export OPENAI_API_KEY=...
-```
-
-Copy `backend/.env.example` if you prefer loading keys from a local env file.
-Run this backend on your own machine only. It reads local paths by design and is not hardened for public hosting.
-
-## Run the frontend
+Start the frontend in another terminal:
 
 ```bash
 cd frontend
@@ -49,61 +69,151 @@ npm install
 npm run dev
 ```
 
-Set `VITE_API_BASE` only if the backend is not running on `http://127.0.0.1:8000`.
+Open:
 
-Open `http://127.0.0.1:5173`, enter a local repository path, and analyze.
+```text
+http://127.0.0.1:5173
+```
 
-For a quick demo, scan:
+Enter a local repository path and click **Analyze**.
+
+For a quick built-in scan, use:
 
 ```text
 backend/tests/fixtures/sample_repo
 ```
 
-## Run with Docker
+## Optional OpenAI Summaries
+
+The analyzer and graph do not require AI. To enable file summaries:
+
+```bash
+export OPENAI_API_KEY=...
+```
+
+Then select a file node and click **Generate summary** or **Refresh summary**.
+
+Summaries are cached in a local SQLite database, keyed by file content, model, provider, and prompt version. A file is re-analyzed only when its cache key changes.
+
+## Run With Docker
 
 ```bash
 docker compose up --build
 ```
 
-Older Docker installs may need `docker-compose up --build`.
+Then open:
 
-Then open `http://127.0.0.1:5173`. In Docker, the project repository is mounted read-only at:
+```text
+http://127.0.0.1:5173
+```
+
+Inside Docker, this project is mounted read-only at:
 
 ```text
 /workspace/repository-visualizer
 ```
 
-Use that path for the built-in demo scan, or add another bind mount to `docker-compose.yml` for a different local repository.
+Use that path for a demo scan, or add another bind mount to `docker-compose.yml` for a different local repository.
 
-## Large repositories
+## Test And Build
 
-The analyzer defaults to the first 1000 eligible source files, includes tests, and excludes vendor/generated-looking files. Raise or lower the file cap in the UI depending on the machine and repo size.
-
-The API response includes scan metadata:
-
-- `stats.total_files_found`
-- `stats.analyzed_files`
-- `stats.skipped_files`
-- `stats.skipped_reasons`
-- `stats.truncated`
-- `stats.warnings`
-
-The frontend displays those values and lets you filter the rendered graph by path/folder search, file extension, or one-hop neighborhood around the selected file. This keeps the app responsive without pretending every massive repo should render as one unbounded canvas.
-
-Dragged node positions are saved in browser `localStorage` per repository and graph shape. Use `Reset layout` in the graph toolbar to return to the automatic layout.
-
-## Test
+Backend tests:
 
 ```bash
-cd backend && pytest
-cd frontend && npm test
-cd frontend && npm run build
+cd backend
+pytest
 ```
 
-## Known limitations
+Frontend tests:
 
-- Dependency parsing is intentionally static and bounded.
-- External dependencies are tracked as metadata, not rendered as graph nodes.
-- `.gitignore` support covers common root patterns and directory ignores, not every advanced Git ignore edge case.
-- Very large repos still need background jobs and backend-backed subgraph loading.
-- Full cyclomatic complexity and dependency-rule validation are follow-up work.
+```bash
+cd frontend
+npm test
+```
+
+Frontend production build:
+
+```bash
+cd frontend
+npm run build
+```
+
+CI runs backend tests, frontend tests, and frontend build on pull requests.
+
+## API
+
+The backend exposes three endpoints:
+
+- `GET /api/health` checks backend health.
+- `POST /api/analyze` scans a local path and returns graph JSON.
+- `POST /api/summarize` summarizes a selected file with OpenAI or returns cached/disabled state.
+
+Minimal analyze request:
+
+```json
+{
+  "root_path": "/absolute/path/to/repo",
+  "max_files": 1000,
+  "include_tests": true,
+  "include_vendor": false
+}
+```
+
+The response includes:
+
+- `nodes` and `edges` for React Flow.
+- `folder_summaries`.
+- `cycles`.
+- `repo_report.start_here`.
+- `repo_report.entry_points`.
+- `repo_report.reading_order`.
+- `stats.total_files_found`, `stats.analyzed_files`, `stats.skipped_files`, `stats.truncated`, and `stats.warnings`.
+
+## Large Repository Behavior
+
+The analyzer defaults to the first 1000 eligible source files. This is deliberate: a 3000-file repo rendered as one graph is usually unreadable.
+
+Use these controls for large repos:
+
+- Raise or lower **Max files** before analysis.
+- Turn off **Tests** if test-heavy repos drown out core source.
+- Use graph presets: **Hide tests**, **Connected only**, **Hubs**, and **Issues**.
+- Use **Neighborhood** mode after selecting a risky file.
+- Export the Markdown report when you need a compact review artifact.
+
+Dogfood results:
+
+| Repository | Size | Files analyzed | Edges | Time |
+| --- | --- | ---: | ---: | ---: |
+| `pallets/markupsafe` | small | 13 / 13 | 11 | 12.9 ms |
+| `pallets/flask` | medium | 83 / 83 | 176 | 139.4 ms |
+| `django/django` | large | 1000 / 2969 | 3695 | 1697.0 ms |
+
+See [`docs/dogfood/three-repo-2026-06-30.md`](docs/dogfood/three-repo-2026-06-30.md) for the comparison and fixes made from it.
+
+## Assumptions
+
+- Static dependency parsing is enough for first-pass orientation.
+- The app should remain local-first and simple to run.
+- Supported source files matter more than every repository asset. The UI labels counts as `analyzed / found source files` for that reason.
+- Package `__init__.py` files may be public API facades, so they are not automatically treated as bad coupling.
+- Truncated scans are partial rankings, not full repository truth.
+- OpenAI is optional. The core tool must remain useful without an API key.
+
+## Known Limitations
+
+- Dependency parsing is static and cannot fully classify top-level, lazy, conditional, type-checking, and re-export edges yet.
+- Dynamic framework behavior is only partially visible. Django settings imports, Flask app factories, plugin loading, templates, routes, signals, and database backends may not appear as graph edges.
+- External dependencies are stored as metadata, not rendered as nodes.
+- `.gitignore` support covers common root patterns and directory ignores, not every advanced Git ignore case.
+- Very large repos still need deeper backend-backed subgraph loading or streamed output.
+- Method/class hotspot ranking inside large files is future work.
+
+## Useful Next Features
+
+- Edge timing labels: top-level, lazy/local, conditional, type-checking, re-export.
+- Method/class hotspot ranking for giant files like ORM query builders.
+- Package-level compressed summaries before raw graph rendering.
+- AST/import extraction cache by file hash.
+- Optional CSV/JSON export in addition to Markdown.
+- Framework-aware layers for routes, templates, signals, settings, and app registries.
