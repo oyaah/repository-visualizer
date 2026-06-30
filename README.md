@@ -10,7 +10,7 @@ It is built for onboarding and refactoring: where to start, what imports what, w
 
 - **Local scanning** through a FastAPI backend. Target code is read, not executed.
 - **Dependency extraction** for Python, JavaScript/TypeScript, TypeScript path aliases, dynamic imports, and C/C++ includes.
-- **Repository insights** with ranked "Start here" findings, confidence labels, entry points, reading order, folder summaries, cycles, large files, complexity hotspots, unresolved imports, dependency hubs, and possibly-unused (orphan) files.
+- **Repository insights** with ranked "Start here" findings, confidence labels, entry points, reading order, folder summaries, a folder-level module map, cycles, large files, complexity hotspots, unresolved imports, dependency hubs, and possibly-unused (orphan) files.
 - **Large-repo controls** with file caps, truncation warnings, graph search, extension/folder filters, hide-tests, connected-only, hubs, issues, and neighborhood mode.
 - **Selected-file impact** showing direct dependencies, direct dependents, second-order dependents, and likely affected tests.
 - **React Flow canvas** with draggable nodes, zoom/pan, minimap, saved node positions, and reset layout.

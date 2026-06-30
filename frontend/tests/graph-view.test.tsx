@@ -58,11 +58,13 @@ const graph: GraphResponse = {
   ],
   edges: [{ id: 'e1', source: 'src/main.py', target: 'src/utils.py', kind: 'import', label: 'import' }],
   folder_summaries: [{ name: 'src', files: 2, loc: 7 }],
+  folder_dependencies: [],
   cycles: [],
   repo_report: {
     start_here: [],
     entry_points: [],
-    reading_order: []
+    reading_order: [],
+    orphans: []
   }
 };
 

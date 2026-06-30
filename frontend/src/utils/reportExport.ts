@@ -45,6 +45,13 @@ export function buildMarkdownReport(graph: GraphResponse): string {
       '- No folders found.'
     ),
     '',
+    '## Module Map',
+    '',
+    listOrFallback(
+      graph.folder_dependencies.slice(0, 12).map((edge) => `- \`${edge.source}\` -> \`${edge.target}\` (${edge.edge_count} ${edge.edge_count === 1 ? 'dependency' : 'dependencies'})`),
+      '- No cross-folder dependencies found.'
+    ),
+    '',
     '## Cycles',
     '',
     listOrFallback(

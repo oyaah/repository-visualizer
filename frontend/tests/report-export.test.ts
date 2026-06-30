@@ -16,6 +16,7 @@ const graph: GraphResponse = {
   nodes: [],
   edges: [{ id: 'a.py->b.py:import', source: 'a.py', target: 'b.py', kind: 'import', label: 'import' }],
   folder_summaries: [{ name: 'src', files: 2, loc: 120 }],
+  folder_dependencies: [{ source: 'src', target: 'lib', edge_count: 3 }],
   cycles: [{ files: ['a.py', 'b.py'], edge_count: 2 }],
   repo_report: {
     start_here: [
@@ -65,6 +66,8 @@ describe('buildMarkdownReport', () => {
     expect(markdown).toContain('1. `main.py`');
     expect(markdown).toContain('`src`: 120 LoC across 2 files');
     expect(markdown).toContain('`a.py` -> `b.py`');
+    expect(markdown).toContain('## Module Map');
+    expect(markdown).toContain('`src` -> `lib` (3 dependencies)');
     expect(markdown).toContain('## Possibly Unused Files');
     expect(markdown).toContain('orphan.py');
     expect(markdown).toContain('Analysis limited to 2 files');
@@ -75,6 +78,7 @@ describe('buildMarkdownReport', () => {
       ...graph,
       edges: [],
       folder_summaries: [],
+      folder_dependencies: [],
       cycles: [],
       repo_report: { start_here: [], entry_points: [], reading_order: [], orphans: [] },
       stats: { ...graph.stats, warnings: [] }
@@ -82,6 +86,7 @@ describe('buildMarkdownReport', () => {
 
     expect(markdown).toContain('No obvious hotspots');
     expect(markdown).toContain('No likely entry points');
+    expect(markdown).toContain('No cross-folder dependencies found.');
     expect(markdown).toContain('No obviously unused files detected.');
     expect(markdown).toContain('Static dependency parsing only');
   });

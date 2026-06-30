@@ -230,6 +230,21 @@ def test_graph_detects_metadata_entry_points(tmp_path: Path) -> None:
     assert ("python_script", "pkg/main.py", "Python script: rv") in entries
 
 
+def test_graph_aggregates_folder_dependencies(tmp_path: Path) -> None:
+    (tmp_path / "frontend").mkdir()
+    (tmp_path / "backend").mkdir()
+    (tmp_path / "frontend" / "app.py").write_text("import backend.api\nimport backend.db\n", encoding="utf-8")
+    (tmp_path / "backend" / "__init__.py").write_text("", encoding="utf-8")
+    (tmp_path / "backend" / "api.py").write_text("import backend.db\n", encoding="utf-8")
+    (tmp_path / "backend" / "db.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    deps = {(edge.source, edge.target): edge.edge_count for edge in graph.folder_dependencies}
+    assert deps.get(("frontend", "backend")) == 2  # app.py imports api and db
+    assert all(edge.source != edge.target for edge in graph.folder_dependencies)  # within-folder edges excluded
+
+
 def test_graph_flags_orphan_files(tmp_path: Path) -> None:
     (tmp_path / "main.py").write_text('import helper\nif __name__ == "__main__":\n    helper.run()\n', encoding="utf-8")
     (tmp_path / "helper.py").write_text("def run():\n    return 1\n", encoding="utf-8")

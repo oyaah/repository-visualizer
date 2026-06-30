@@ -55,6 +55,12 @@ export type CycleSummary = {
   edge_count: number;
 };
 
+export type FolderEdge = {
+  source: string;
+  target: string;
+  edge_count: number;
+};
+
 export type ReportFinding = {
   kind: string;
   title: string;
@@ -84,6 +90,7 @@ export type GraphResponse = {
   nodes: GraphNode[];
   edges: GraphEdge[];
   folder_summaries: FolderSummary[];
+  folder_dependencies: FolderEdge[];
   cycles: CycleSummary[];
   repo_report: RepoReport;
   ignored_directories: string[];

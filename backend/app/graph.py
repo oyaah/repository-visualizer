@@ -14,6 +14,7 @@ from app.models import (
     EdgeKind,
     EntryPointSummary,
     FileMetrics,
+    FolderEdge,
     FolderSummary,
     GraphEdge,
     GraphNode,
@@ -91,6 +92,7 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
     sorted_nodes = sorted(nodes.values(), key=lambda node: node.path)
     sorted_edges = sorted(edges, key=lambda edge: edge.id)
     folder_summaries = build_folder_summaries(sorted_nodes)
+    folder_dependencies = build_folder_dependencies(sorted_nodes, sorted_edges)
     cycles = find_cycles(sorted_nodes, sorted_edges)
 
     return GraphResponse(
@@ -98,6 +100,7 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
         nodes=sorted_nodes,
         edges=sorted_edges,
         folder_summaries=folder_summaries,
+        folder_dependencies=folder_dependencies,
         cycles=cycles,
         repo_report=build_repo_report(root, sorted_nodes, cycles, scanned_files),
         ignored_directories=scan_result.ignored_directories,
@@ -361,15 +364,34 @@ def entry(item: ScannedFile, kind: str, label: str, detail: str) -> EntryPointSu
     return EntryPointSummary(kind=kind, file_path=item.relative_path, label=label, detail=detail)
 
 
+def top_folder(folder: str) -> str:
+    return folder.split("/", 1)[0] if folder else "root"
+
+
 def build_folder_summaries(nodes: list[GraphNode]) -> list[FolderSummary]:
     summaries: dict[str, dict[str, int]] = defaultdict(lambda: {"files": 0, "loc": 0})
     for node in nodes:
-        name = node.folder.split("/", 1)[0] if node.folder else "root"
+        name = top_folder(node.folder)
         summaries[name]["files"] += 1
         summaries[name]["loc"] += node.metrics.loc
     return sorted(
         (FolderSummary(name=name, **summary) for name, summary in summaries.items()),
         key=lambda item: (-item.loc, -item.files, item.name),
+    )
+
+
+def build_folder_dependencies(nodes: list[GraphNode], edges: list[GraphEdge]) -> list[FolderEdge]:
+    folder_by_path = {node.path: top_folder(node.folder) for node in nodes}
+    counts: dict[tuple[str, str], int] = defaultdict(int)
+    for edge in edges:
+        source = folder_by_path.get(edge.source)
+        target = folder_by_path.get(edge.target)
+        if source is None or target is None or source == target:
+            continue
+        counts[(source, target)] += 1
+    return sorted(
+        (FolderEdge(source=source, target=target, edge_count=count) for (source, target), count in counts.items()),
+        key=lambda item: (-item.edge_count, item.source, item.target),
     )
 
 

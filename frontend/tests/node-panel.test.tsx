@@ -70,11 +70,13 @@ const graph: GraphResponse = {
     { id: 'tests/test_flow.py->tests/test_main.py:import', source: 'tests/test_flow.py', target: 'tests/test_main.py', kind: 'import', label: 'import' }
   ],
   folder_summaries: [],
+  folder_dependencies: [],
   cycles: [],
   repo_report: {
     start_here: [],
     entry_points: [],
-    reading_order: []
+    reading_order: [],
+    orphans: []
   }
 };
 

@@ -1,7 +1,7 @@
-import { AlertTriangle, BarChart3, Download, GitMerge, ListTree, Play, Trash2 } from 'lucide-react';
+import { AlertTriangle, BarChart3, Download, GitMerge, ListTree, Network, Play, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import type { CycleSummary, EntryPointSummary, FolderSummary, GraphNode, GraphResponse, ReportFinding } from '../types/graph';
+import type { CycleSummary, EntryPointSummary, FolderEdge, FolderSummary, GraphNode, GraphResponse, ReportFinding } from '../types/graph';
 import { downloadMarkdownReport } from '../utils/reportExport';
 
 type Props = {
@@ -43,6 +43,7 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
       <EntryPointList entries={insights?.entryPoints ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <ReadingOrder paths={insights?.readingOrder ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <FolderList folders={insights?.folders ?? []} />
+      <FolderDependencyList edges={insights?.folderDependencies ?? []} />
       <CycleList cycles={insights?.cycles ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <InsightList title="Largest files" icon={<ListTree size={15} />} items={insights?.largest ?? []} valueFor={(node) => `${node.metrics.loc} LoC`} onSelectNode={onSelectNode} />
       <InsightList title="Complexity" icon={<BarChart3 size={15} />} items={insights?.complex ?? []} valueFor={(node) => `Cx ${node.metrics.complexity}`} onSelectNode={onSelectNode} />
@@ -93,6 +94,7 @@ function buildInsights(graph: GraphResponse) {
     entryPoints: graph.repo_report.entry_points.slice(0, 4),
     readingOrder: graph.repo_report.reading_order.slice(0, 6),
     folders: graph.folder_summaries.slice(0, 3),
+    folderDependencies: graph.folder_dependencies.slice(0, 6),
     cycles,
     largest,
     complex,
@@ -275,6 +277,28 @@ function FolderList({ folders }: { folders: FolderSummary[] }) {
         </ol>
       ) : (
         <p>No folders found.</p>
+      )}
+    </section>
+  );
+}
+
+function FolderDependencyList({ edges }: { edges: FolderEdge[] }) {
+  return (
+    <section className="insight-section">
+      <h3><Network size={15} />Module map</h3>
+      {edges.length ? (
+        <ol>
+          {edges.map((edge) => (
+            <li key={`${edge.source}->${edge.target}`}>
+              <div className="folder-insight-row">
+                <span>{edge.source} &rarr; {edge.target}</span>
+                <strong>{edge.edge_count} {edge.edge_count === 1 ? 'dep' : 'deps'}</strong>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p>No cross-folder dependencies in analyzed files.</p>
       )}
     </section>
   );

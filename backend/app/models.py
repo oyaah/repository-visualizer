@@ -79,6 +79,12 @@ class CycleSummary(BaseModel):
     edge_count: int
 
 
+class FolderEdge(BaseModel):
+    source: str
+    target: str
+    edge_count: int
+
+
 class ReportFinding(BaseModel):
     kind: str
     title: str
@@ -108,6 +114,7 @@ class GraphResponse(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
     folder_summaries: list[FolderSummary] = Field(default_factory=list)
+    folder_dependencies: list[FolderEdge] = Field(default_factory=list)
     cycles: list[CycleSummary] = Field(default_factory=list)
     repo_report: RepoReport = Field(default_factory=RepoReport)
     ignored_directories: list[str]

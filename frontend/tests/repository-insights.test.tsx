@@ -53,6 +53,7 @@ const graph: GraphResponse = {
     { name: 'tests', files: 1, loc: 200 },
     { name: 'src', files: 3, loc: 190 }
   ],
+  folder_dependencies: [{ source: 'src', target: 'tests', edge_count: 2 }],
   cycles: [{ files: ['src/complex.py', 'src/main.py'], edge_count: 2 }],
   repo_report: {
     start_here: [
@@ -130,6 +131,8 @@ describe('RepositoryInsights', () => {
     expect(screen.getByText('3 uses')).toBeInTheDocument();
     expect(screen.getByText('Possibly unused')).toBeInTheDocument();
     expect(screen.getByText('No obviously unused files detected.')).toBeInTheDocument();
+    expect(screen.getByText('Module map')).toBeInTheDocument();
+    expect(screen.getByText('2 deps')).toBeInTheDocument();
   });
 
   it('lists possibly-unused files when the report has orphans', () => {
