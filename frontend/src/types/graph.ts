@@ -7,6 +7,17 @@ export type FileMetrics = {
   dependent_count: number;
 };
 
+export type FileGitStats = {
+  commits: number;
+  churn: number;
+  fix_commits: number;
+  distinct_authors: number;
+  primary_author: string | null;
+  primary_author_share: number;
+  last_modified: string | null;
+  recency_days: number | null;
+};
+
 export type GraphNode = {
   id: string;
   path: string;
@@ -15,6 +26,8 @@ export type GraphNode = {
   extension: string;
   kind: 'file';
   metrics: FileMetrics;
+  risk: number;
+  git: FileGitStats | null;
   imports: string[];
   imported_by: string[];
   unresolved_imports: string[];
@@ -50,6 +63,33 @@ export type FolderSummary = {
   loc: number;
 };
 
+export type PackageSummary = {
+  name: string;
+  files: number;
+  loc: number;
+  complexity: number;
+  risk: number;
+  internal_edges: number;
+  incoming_edges: number;
+  outgoing_edges: number;
+  bus_factor: number | null;
+  primary_author: string | null;
+  churn: number;
+};
+
+export type PackageEdge = {
+  source: string;
+  target: string;
+  count: number;
+};
+
+export type GitSummary = {
+  available: boolean;
+  total_commits: number;
+  capped: boolean;
+  note: string | null;
+};
+
 export type CycleSummary = {
   files: string[];
   edge_count: number;
@@ -83,8 +123,11 @@ export type GraphResponse = {
   nodes: GraphNode[];
   edges: GraphEdge[];
   folder_summaries: FolderSummary[];
+  packages: PackageSummary[];
+  package_edges: PackageEdge[];
   cycles: CycleSummary[];
   repo_report: RepoReport;
+  git: GitSummary;
   ignored_directories: string[];
   stats: GraphStats;
 };

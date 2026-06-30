@@ -19,6 +19,9 @@ vi.mock('@xyflow/react', async () => {
 
 const graph: GraphResponse = {
   root_path: '/tmp/repo',
+  packages: [],
+  package_edges: [],
+  git: { available: false, total_commits: 0, capped: false, note: null },
   ignored_directories: [],
   stats: {
     total_files_found: 2,
@@ -36,6 +39,8 @@ const graph: GraphResponse = {
       folder: 'src',
       extension: '.py',
       kind: 'file',
+      risk: 0,
+      git: null,
       metrics: { loc: 5, total_lines: 5, size_bytes: 20, complexity: 1, dependency_count: 1, dependent_count: 0 },
       imports: ['src/utils.py'],
       imported_by: [],
@@ -49,6 +54,8 @@ const graph: GraphResponse = {
       folder: 'src',
       extension: '.py',
       kind: 'file',
+      risk: 0,
+      git: null,
       metrics: { loc: 2, total_lines: 2, size_bytes: 10, complexity: 1, dependency_count: 0, dependent_count: 1 },
       imports: [],
       imported_by: ['src/main.py'],
@@ -85,6 +92,8 @@ const graphWithOrphan: GraphResponse = {
       folder: 'docs',
       extension: '.md',
       kind: 'file',
+      risk: 0,
+      git: null,
       metrics: { loc: 8, total_lines: 8, size_bytes: 80, complexity: 0, dependency_count: 0, dependent_count: 0 },
       imports: [],
       imported_by: [],
@@ -113,6 +122,8 @@ const graphWithPresets: GraphResponse = {
       folder: 'tests',
       extension: '.py',
       kind: 'file',
+      risk: 0,
+      git: null,
       metrics: { loc: 12, total_lines: 12, size_bytes: 120, complexity: 1, dependency_count: 1, dependent_count: 0 },
       imports: ['src/main.py'],
       imported_by: [],
@@ -126,6 +137,8 @@ const graphWithPresets: GraphResponse = {
       folder: 'src',
       extension: '.py',
       kind: 'file',
+      risk: 0,
+      git: null,
       metrics: { loc: 100, total_lines: 100, size_bytes: 1000, complexity: 1, dependency_count: 0, dependent_count: 0 },
       imports: [],
       imported_by: [],
@@ -232,5 +245,37 @@ describe('GraphCanvas', () => {
   it('renders empty state before analysis', () => {
     render(<GraphCanvas graph={null} selectedNodeId={null} onSelectNode={() => undefined} />);
     expect(screen.getByText('No repository loaded')).toBeInTheDocument();
+  });
+
+  it('switches to the package view', () => {
+    const withPackages: GraphResponse = {
+      ...graph,
+      packages: [
+        { name: 'src', files: 2, loc: 60, complexity: 5, risk: 70, internal_edges: 1, incoming_edges: 1, outgoing_edges: 0, bus_factor: 1, primary_author: 'alice', churn: 100 }
+      ],
+      package_edges: [{ source: 'tests', target: 'src', count: 1 }]
+    };
+    render(<GraphCanvas graph={withPackages} selectedNodeId={null} onSelectNode={() => undefined} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Packages' }));
+
+    expect(screen.getByText('1 packages')).toBeInTheDocument();
+    expect(screen.getByText('1 cross-package links')).toBeInTheDocument();
+  });
+
+  it('renders external dependency nodes when toggled on', () => {
+    const withExternal: GraphResponse = {
+      ...graph,
+      nodes: graph.nodes.map((node, index) =>
+        index === 0 ? { ...node, external_imports: ['react', 'react-dom'] } : node
+      )
+    };
+    render(<GraphCanvas graph={withExternal} selectedNodeId={null} onSelectNode={() => undefined} />);
+
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('External deps'));
+
+    expect(screen.getByText('react')).toBeInTheDocument();
+    expect(screen.getByText('react-dom')).toBeInTheDocument();
   });
 });

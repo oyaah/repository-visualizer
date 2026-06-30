@@ -4,6 +4,9 @@ import type { GraphResponse } from '../src/types/graph';
 
 const graph: GraphResponse = {
   root_path: '/tmp/repo',
+  packages: [],
+  package_edges: [],
+  git: { available: false, total_commits: 0, capped: false, note: null },
   ignored_directories: [],
   stats: {
     total_files_found: 3,

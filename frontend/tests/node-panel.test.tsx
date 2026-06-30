@@ -17,6 +17,8 @@ const node: GraphNode = {
   folder: 'src',
   extension: '.py',
   kind: 'file',
+  risk: 0,
+  git: null,
   metrics: { loc: 12, total_lines: 15, size_bytes: 100, complexity: 4, dependency_count: 1, dependent_count: 2 },
   imports: ['src/utils.py'],
   imported_by: ['tests/test_main.py'],
@@ -26,6 +28,9 @@ const node: GraphNode = {
 
 const graph: GraphResponse = {
   root_path: '/tmp/repo',
+  packages: [],
+  package_edges: [],
+  git: { available: false, total_commits: 0, capped: false, note: null },
   ignored_directories: [],
   stats: {
     total_files_found: 4,

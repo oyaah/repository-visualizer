@@ -37,6 +37,17 @@ class FileMetrics(BaseModel):
     dependent_count: int = 0
 
 
+class FileGitStats(BaseModel):
+    commits: int
+    churn: int
+    fix_commits: int
+    distinct_authors: int
+    primary_author: str | None = None
+    primary_author_share: float = 0.0
+    last_modified: str | None = None
+    recency_days: int | None = None
+
+
 class GraphNode(BaseModel):
     id: str
     path: str
@@ -45,6 +56,8 @@ class GraphNode(BaseModel):
     extension: str
     kind: NodeKind = NodeKind.FILE
     metrics: FileMetrics
+    risk: float = 0.0
+    git: FileGitStats | None = None
     imports: list[str] = Field(default_factory=list)
     imported_by: list[str] = Field(default_factory=list)
     unresolved_imports: list[str] = Field(default_factory=list)
@@ -72,6 +85,33 @@ class FolderSummary(BaseModel):
     name: str
     files: int
     loc: int
+
+
+class PackageSummary(BaseModel):
+    name: str
+    files: int
+    loc: int
+    complexity: int
+    risk: float
+    internal_edges: int = 0
+    incoming_edges: int = 0
+    outgoing_edges: int = 0
+    bus_factor: int | None = None
+    primary_author: str | None = None
+    churn: int = 0
+
+
+class PackageEdge(BaseModel):
+    source: str
+    target: str
+    count: int
+
+
+class GitSummary(BaseModel):
+    available: bool
+    total_commits: int = 0
+    capped: bool = False
+    note: str | None = None
 
 
 class CycleSummary(BaseModel):
@@ -107,8 +147,11 @@ class GraphResponse(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
     folder_summaries: list[FolderSummary] = Field(default_factory=list)
+    packages: list[PackageSummary] = Field(default_factory=list)
+    package_edges: list[PackageEdge] = Field(default_factory=list)
     cycles: list[CycleSummary] = Field(default_factory=list)
     repo_report: RepoReport = Field(default_factory=RepoReport)
+    git: GitSummary = Field(default_factory=lambda: GitSummary(available=False))
     ignored_directories: list[str]
     stats: GraphStats
 

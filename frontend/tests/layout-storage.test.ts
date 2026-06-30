@@ -58,6 +58,8 @@ function node(path: string): GraphNode {
     folder: path.includes('/') ? path.split('/').slice(0, -1).join('/') : '',
     extension: path.slice(path.lastIndexOf('.')),
     kind: 'file',
+    risk: 0,
+    git: null,
     metrics: {
       loc: 1,
       total_lines: 1,

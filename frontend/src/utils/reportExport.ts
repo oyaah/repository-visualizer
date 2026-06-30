@@ -12,6 +12,7 @@ export function buildMarkdownReport(graph: GraphResponse): string {
     `- Local edges: ${graph.edges.length}`,
     `- Skipped files: ${graph.stats.skipped_files}`,
     `- Truncated: ${graph.stats.truncated ? 'yes' : 'no'}`,
+    `- Git history: ${graph.git.available ? `${graph.git.total_commits} commits read${graph.git.capped ? ' (capped)' : ''}` : 'unavailable'}`,
     '',
     '## Start Here',
     '',
@@ -30,6 +31,28 @@ export function buildMarkdownReport(graph: GraphResponse): string {
     '## Reading Order',
     '',
     listOrFallback(graph.repo_report.reading_order.map((path, index) => `${index + 1}. \`${path}\``), '- No reading order generated.'),
+    '',
+    '## Risk Hotspots',
+    '',
+    listOrFallback(
+      [...graph.nodes]
+        .filter((node) => node.risk > 0)
+        .sort((a, b) => b.risk - a.risk)
+        .slice(0, 8)
+        .map((node) => `- \`${node.path}\` - risk ${Math.round(node.risk)} (Cx ${node.metrics.complexity}, ${node.metrics.loc} LoC${node.git ? `, ${node.git.commits} commits, ${node.git.fix_commits} fixes` : ''})`),
+      '- No risk hotspots found.'
+    ),
+    '',
+    '## Packages',
+    '',
+    listOrFallback(
+      graph.packages.slice(0, 10).map((pkg) => {
+        const owner = pkg.primary_author ? `, owner @${pkg.primary_author}` : '';
+        const bus = pkg.bus_factor != null ? `, bus factor ${pkg.bus_factor}` : '';
+        return `- \`${pkg.name}\` - risk ${Math.round(pkg.risk)}, ${pkg.files} files, ${pkg.loc} LoC${owner}${bus}`;
+      }),
+      '- No packages found.'
+    ),
     '',
     '## Top Folders',
     '',

@@ -8,6 +8,8 @@ import re
 import tomllib
 from pathlib import Path
 
+from app.git_history import collect_git_history
+from app.intelligence import attach_git_stats, attach_risk_scores, build_packages
 from app.models import (
     AnalyzeRequest,
     CycleSummary,
@@ -15,6 +17,7 @@ from app.models import (
     EntryPointSummary,
     FileMetrics,
     FolderSummary,
+    GitSummary,
     GraphEdge,
     GraphNode,
     GraphResponse,
@@ -90,7 +93,13 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
 
     sorted_nodes = sorted(nodes.values(), key=lambda node: node.path)
     sorted_edges = sorted(edges, key=lambda edge: edge.id)
+
+    history = collect_git_history(root, {node.path for node in sorted_nodes})
+    attach_git_stats(sorted_nodes, history)
+    attach_risk_scores(sorted_nodes, history.available)
+
     folder_summaries = build_folder_summaries(sorted_nodes)
+    packages, package_edges = build_packages(sorted_nodes, sorted_edges, history)
     cycles = find_cycles(sorted_nodes, sorted_edges)
 
     return GraphResponse(
@@ -98,8 +107,16 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
         nodes=sorted_nodes,
         edges=sorted_edges,
         folder_summaries=folder_summaries,
+        packages=packages,
+        package_edges=package_edges,
         cycles=cycles,
         repo_report=build_repo_report(root, sorted_nodes, cycles, scanned_files),
+        git=GitSummary(
+            available=history.available,
+            total_commits=history.total_commits,
+            capped=history.capped,
+            note=history.note,
+        ),
         ignored_directories=scan_result.ignored_directories,
         stats=GraphStats(
             total_files_found=scan_result.total_files_found,
@@ -190,16 +207,85 @@ def build_repo_report(root: Path, nodes: list[GraphNode], cycles: list[CycleSumm
                 )
             )
 
-    findings = dedupe_findings(findings)[:6]
     entry_points = find_entry_points(root, scanned_files)
+    entry_paths = {entry.file_path for entry in entry_points}
+    findings.extend(churn_findings(nodes))
+    findings.extend(dead_code_findings(nodes, entry_paths))
+
+    findings = sorted(dedupe_findings(findings), key=finding_rank)[:6]
     reading_order = list(
         dict.fromkeys(
             [entry.file_path for entry in entry_points]
             + [finding.file_path for finding in findings]
-            + [node.path for node in sorted(nodes, key=lambda item: (-item.metrics.dependent_count, item.path))[:3]]
+            + [node.path for node in sorted(nodes, key=lambda item: (-item.risk, item.path))[:3]]
         )
     )
     return RepoReport(start_here=findings, entry_points=entry_points[:8], reading_order=reading_order[:12])
+
+
+SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
+CONFIDENCE_RANK = {"high": 0, "medium": 1, "low": 2}
+
+
+def finding_rank(finding: ReportFinding) -> tuple[int, int, str]:
+    return (SEVERITY_RANK.get(finding.severity, 3), CONFIDENCE_RANK.get(finding.confidence, 3), finding.file_path)
+
+
+def churn_findings(nodes: list[GraphNode]) -> list[ReportFinding]:
+    scored = [node for node in nodes if node.git and (node.git.fix_commits or node.git.churn)]
+    if not scored:
+        return []
+    top = max(scored, key=lambda node: (node.git.fix_commits, node.git.churn, -node.risk))
+    git = top.git
+    recency = f"last touched {git.recency_days} days ago" if git.recency_days is not None else "recently touched"
+    bug = f", {git.fix_commits} bug-fix commits" if git.fix_commits else ""
+    return [
+        ReportFinding(
+            kind="churn_hotspot",
+            title="Frequently changed file",
+            file_path=top.path,
+            detail=f"{git.commits} commits{bug}, {git.churn} lines churned; {recency}. Change-prone code is where regressions cluster.",
+            severity="high" if git.fix_commits else "medium",
+            confidence="high",
+            related_files=top.imported_by[:8],
+        )
+    ]
+
+
+def dead_code_findings(nodes: list[GraphNode], entry_paths: set[str]) -> list[ReportFinding]:
+    candidates = [
+        node
+        for node in nodes
+        if node.metrics.dependent_count == 0
+        and node.path not in entry_paths
+        and not is_package_init(node.path)
+        and not is_test_path(node.path)
+    ]
+    candidates.sort(key=lambda node: (-node.metrics.loc, node.path))
+    findings = []
+    for node in candidates[:2]:
+        if node.metrics.loc < 20:
+            continue
+        findings.append(
+            ReportFinding(
+                kind="dead_code_candidate",
+                title="Possibly unused file",
+                file_path=node.path,
+                detail=f"{node.metrics.loc} LoC with no local importers. Candidate only - entry scripts, framework routes, and dynamically loaded modules can look unused.",
+                severity="low",
+                confidence="medium",
+            )
+        )
+    return findings
+
+
+def is_test_path(path: str) -> bool:
+    lower = path.lower()
+    name = Path(lower).name
+    if any(part in {"tests", "test", "__tests__", "spec", "specs"} for part in lower.split("/")[:-1]):
+        return True
+    stem = Path(name).stem
+    return name.startswith("test_") or stem.endswith("_test") or stem.endswith(".test") or stem.endswith(".spec")
 
 
 def cycle_detail(files: list[str]) -> str:

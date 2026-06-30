@@ -1,7 +1,7 @@
-import { AlertTriangle, BarChart3, Download, GitMerge, ListTree, Play } from 'lucide-react';
+import { AlertTriangle, BarChart3, Boxes, Download, Flame, GitMerge, ListTree, Play } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import type { CycleSummary, EntryPointSummary, FolderSummary, GraphNode, GraphResponse, ReportFinding } from '../types/graph';
+import type { CycleSummary, EntryPointSummary, FolderSummary, GraphNode, GraphResponse, PackageSummary, ReportFinding } from '../types/graph';
 import { downloadMarkdownReport } from '../utils/reportExport';
 
 type Props = {
@@ -39,7 +39,10 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
         <Stat label="Edges" value={graph.edges.length} />
         <Stat label="Skipped" value={graph.stats.skipped_files} />
       </div>
+      <p className="git-note">{graph.git.available ? `Git history: ${graph.git.total_commits} commits read${graph.git.capped ? ' (capped)' : ''}.` : 'Git history unavailable — risk uses static metrics only.'}</p>
       <StartHere items={insights?.startHere ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
+      <PackageList packages={insights?.packages ?? []} />
+      <InsightList title="Risk hotspots" icon={<Flame size={15} />} items={insights?.risky ?? []} valueFor={(node) => `risk ${Math.round(node.risk)}`} onSelectNode={onSelectNode} fallback="No risk hotspots in analyzed files." />
       <EntryPointList entries={insights?.entryPoints ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <ReadingOrder paths={insights?.readingOrder ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <FolderList folders={insights?.folders ?? []} />
@@ -81,6 +84,8 @@ function buildInsights(graph: GraphResponse) {
     entryPoints: graph.repo_report.entry_points.slice(0, 4),
     readingOrder: graph.repo_report.reading_order.slice(0, 6),
     folders: graph.folder_summaries.slice(0, 3),
+    packages: graph.packages.slice(0, 5),
+    risky: topBy(graph.nodes, (node) => node.risk),
     cycles,
     largest,
     complex,
@@ -88,6 +93,32 @@ function buildInsights(graph: GraphResponse) {
     unresolved,
     external: topBy(graph.nodes, (node) => node.external_imports.length)
   };
+}
+
+function PackageList({ packages }: { packages: PackageSummary[] }) {
+  return (
+    <section className="insight-section">
+      <h3><Boxes size={15} />Packages by risk</h3>
+      {packages.length ? (
+        <ol>
+          {packages.map((pkg) => (
+            <li key={pkg.name}>
+              <div className="folder-insight-row package-insight-row">
+                <span>{pkg.name}</span>
+                <strong>
+                  risk {Math.round(pkg.risk)} · {pkg.files} files
+                  {pkg.bus_factor != null ? ` · bus ${pkg.bus_factor}` : ''}
+                  {pkg.primary_author ? ` · @${pkg.primary_author}` : ''}
+                </strong>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p>No packages found.</p>
+      )}
+    </section>
+  );
 }
 
 function topBy(nodes: GraphNode[], score: (node: GraphNode) => number): GraphNode[] {
