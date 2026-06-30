@@ -166,14 +166,6 @@ Dogfood results:
 
 See [docs/dogfood.md](docs/dogfood.md) for what the dogfood pass found and changed.
 
-## Assumptions
-
-- Static dependency parsing is enough for first-pass orientation.
-- Supported source files matter more than every repository asset, so counts are labeled as `analyzed / found source files`.
-- Package `__init__.py` files may be public API facades, so they are not automatically treated as bad coupling.
-- Truncated scans are partial rankings, not full repository truth.
-- OpenAI is optional; the core tool must stay useful without an API key.
-
 ## Known Limitations
 
 - Static edge timing is heuristic. It labels top-level, lazy/local, conditional, type-checking, re-export, and dynamic edges, but it is not runtime tracing.
