@@ -203,7 +203,8 @@ function FlowGraph({
 
 const RepoNode = memo(function RepoNode({ data, selected }: NodeProps) {
   const node = data as unknown as GraphNode;
-  const tone = node.metrics.complexity >= 8 || node.metrics.loc >= 80 ? 'hot' : node.metrics.dependency_count > 2 ? 'busy' : 'calm';
+  const risk = node.metrics.risk_score ?? 0;
+  const tone = risk >= 70 || node.metrics.complexity >= 8 || node.metrics.loc >= 80 ? 'hot' : risk >= 40 || node.metrics.dependency_count > 2 ? 'busy' : 'calm';
   return (
     <div className={`repo-node ${tone} ${selected ? 'selected' : ''}`}>
       <Handle type="target" position={Position.Left} />
@@ -214,7 +215,7 @@ const RepoNode = memo(function RepoNode({ data, selected }: NodeProps) {
       <div className="repo-node-metrics">
         <span>{node.metrics.loc} LoC</span>
         <span>Cx {node.metrics.complexity}</span>
-        <span>{node.metrics.dependency_count} deps</span>
+        <span>Risk {risk}</span>
       </div>
       <Handle type="source" position={Position.Right} />
     </div>

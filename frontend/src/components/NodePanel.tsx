@@ -81,7 +81,7 @@ export function NodePanel({ rootPath, node, graph }: Props) {
       <dl className="metrics-grid">
         <Metric label="LoC" value={node.metrics.loc} />
         <Metric label="Complexity" value={node.metrics.complexity} />
-        <Metric label="Imports" value={node.metrics.dependency_count} />
+        <Metric label="Risk" value={node.metrics.risk_score ?? 0} />
         <Metric label="Used by" value={node.metrics.dependent_count} />
       </dl>
 

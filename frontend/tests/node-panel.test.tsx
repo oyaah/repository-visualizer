@@ -17,7 +17,7 @@ const node: GraphNode = {
   folder: 'src',
   extension: '.py',
   kind: 'file',
-  metrics: { loc: 12, total_lines: 15, size_bytes: 100, complexity: 4, dependency_count: 1, dependent_count: 2 },
+  metrics: { loc: 12, total_lines: 15, size_bytes: 100, complexity: 4, maintainability: 88, risk_score: 42, dependency_count: 1, dependent_count: 2 },
   imports: ['src/utils.py'],
   imported_by: ['tests/test_main.py'],
   unresolved_imports: ['.missing'],
@@ -99,6 +99,7 @@ describe('NodePanel', () => {
     render(<NodePanel rootPath="/tmp/repo" node={node} graph={graph} />);
     expect(screen.getByText('main.py')).toBeInTheDocument();
     expect(screen.getByText('12')).toBeInTheDocument();
+    expect(screen.getByText('42')).toBeInTheDocument();
     expect(screen.getByText('src/utils.py')).toBeInTheDocument();
     expect(screen.getAllByText('tests/test_main.py').length).toBeGreaterThan(0);
     expect(screen.getByText('os')).toBeInTheDocument();
