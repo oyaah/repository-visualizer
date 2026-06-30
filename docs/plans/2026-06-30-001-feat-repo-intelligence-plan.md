@@ -1,7 +1,7 @@
 ---
 title: "feat: Improve Repository Intelligence"
 type: "feat"
-status: "active"
+status: "completed"
 date: "2026-06-30"
 execution: "code"
 ---

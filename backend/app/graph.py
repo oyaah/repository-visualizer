@@ -20,14 +20,18 @@ from app.models import (
     GraphNode,
     GraphResponse,
     GraphStats,
+    PackageSummary,
     RepoReport,
     ReportFinding,
-    PackageSummary,
 )
 from app.parsers import Dependency, parse_dependencies, parse_symbols
 from app.scanner import ScannedFile, scan_repository
 
 RESOLUTION_EXTENSIONS = ["", ".py", ".js", ".jsx", ".ts", ".tsx", ".c", ".h", ".cc", ".cpp", ".hpp", "/index.js", "/index.ts", "/__init__.py"]
+AWS_KEY_PATTERN = re.compile(r"AKIA[0-9A-Z]{16}")
+PRIVATE_KEY_PATTERN = re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")
+SECRET_ASSIGNMENT_PATTERN = re.compile(r"(?i)(api_key|apikey|secret|password|passwd|private_key)\s*[:=]\s*['\"][0-9A-Za-z_\-]{16,}['\"]")
+UNSAFE_API_PATTERN = re.compile(r"\beval\s*\(|\bexec\s*\(|os\.system\s*\(|shell\s*=\s*True|child_process\.exec\s*\(|dangerouslySetInnerHTML|\bgets\s*\(|\bstrcpy\s*\(")
 
 
 @dataclass(frozen=True)
@@ -437,13 +441,13 @@ def detect_security_hints(item: ScannedFile) -> list[CodeHint]:
         lower = stripped.lower()
         if not stripped or lower.startswith(("#", "//")):
             continue
-        if "placeholder" in lower or "example" in lower or "your_" in lower or "<" in stripped:
+        if "placeholder" in lower or "example" in lower or "your_" in lower or ("<" in stripped and ">" in stripped):
             continue
-        if re.search(r"AKIA[0-9A-Z]{16}", stripped) or re.search(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----", stripped):
+        if AWS_KEY_PATTERN.search(stripped) or PRIVATE_KEY_PATTERN.search(stripped):
             hints.append(CodeHint(kind="security", title="Secret-like value", detail="A credential or private key pattern appears in source.", severity="high", line=line_number))
-        elif re.search(r"(?i)(api_key|apikey|secret|password|passwd|private_key)\s*[:=]\s*['\"][0-9A-Za-z_\-]{16,}['\"]", stripped):
+        elif SECRET_ASSIGNMENT_PATTERN.search(stripped):
             hints.append(CodeHint(kind="security", title="Hardcoded secret candidate", detail="A secret-looking assignment appears in source.", severity="high", line=line_number))
-        elif re.search(r"\beval\s*\(|\bexec\s*\(|os\.system\s*\(|shell\s*=\s*True|child_process\.exec\s*\(|dangerouslySetInnerHTML|\bgets\s*\(|\bstrcpy\s*\(", stripped):
+        elif UNSAFE_API_PATTERN.search(stripped):
             hints.append(CodeHint(kind="security", title="Unsafe API pattern", detail="A risky execution, shell, DOM, or memory API appears in source.", severity="medium", line=line_number))
     return hints
 

@@ -298,3 +298,11 @@ def test_graph_ignores_obvious_secret_placeholders(tmp_path: Path) -> None:
     graph = build_graph(tmp_path)
 
     assert graph.nodes[0].hints == []
+
+
+def test_graph_security_hint_placeholder_filter_does_not_hide_unsafe_code(tmp_path: Path) -> None:
+    (tmp_path / "unsafe.py").write_text("if value < 10:\n    eval(value)\n", encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    assert any(hint.title == "Unsafe API pattern" for hint in graph.nodes[0].hints)

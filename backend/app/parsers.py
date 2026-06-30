@@ -242,10 +242,11 @@ def parse_python_symbols(text: str) -> list[CodeSymbol]:
 
 def parse_javascript_symbols(text: str) -> list[CodeSymbol]:
     symbols = []
+    lines = text.splitlines()
     for match in JS_SYMBOL_PATTERN.finditer(strip_javascript_comments(text)):
         name = next(group for group in match.groups() if group)
         line = text.count("\n", 0, match.start()) + 1
-        line_text = text.splitlines()[line - 1] if text.splitlines() else ""
+        line_text = lines[line - 1] if lines else ""
         kind = "class" if "class" in line_text else "function"
         symbols.append(CodeSymbol(name=name, kind=kind, line=line, complexity=symbol_complexity(line_text)))
     return sorted(symbols, key=lambda item: (-item.complexity, item.line, item.name))[:8]
