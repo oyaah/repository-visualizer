@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AlertCircle, GitBranch } from 'lucide-react';
-import { analyzeRepository } from './api/client';
+import { analyzeRepository, loadRepositorySubgraph } from './api/client';
 import { AppShell } from './components/AppShell';
 import { NodePanel } from './components/NodePanel';
 import { RepoPathForm } from './components/RepoPathForm';
@@ -11,6 +11,7 @@ import type { AnalyzeOptions, GraphNode, GraphResponse } from './types/graph';
 export function App() {
   const [graph, setGraph] = useState<GraphResponse | null>(null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [scanOptions, setScanOptions] = useState<AnalyzeOptions>({ max_files: 1000, include_tests: true, include_vendor: false });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,6 +20,7 @@ export function App() {
     setError(null);
     try {
       const response = await analyzeRepository(rootPath, options);
+      setScanOptions(options);
       setGraph(response);
       setSelectedNode(response.nodes[0] ?? null);
     } catch (err) {
@@ -46,7 +48,7 @@ export function App() {
       ) : null}
 
       <main className="workspace">
-        <GraphCanvas graph={graph} selectedNodeId={selectedNode?.id ?? null} onSelectNode={setSelectedNode} />
+        <GraphCanvas graph={graph} selectedNodeId={selectedNode?.id ?? null} scanOptions={scanOptions} onLoadSubgraph={loadRepositorySubgraph} onSelectNode={setSelectedNode} />
         <div className="side-stack">
           <RepositoryInsights graph={graph} onSelectNode={setSelectedNode} />
           <NodePanel rootPath={graph?.root_path ?? ''} node={selectedNode} graph={graph} />

@@ -19,6 +19,10 @@ export function analyzeRepository(rootPath: string, options: AnalyzeOptions): Pr
   return postJson<GraphResponse>('/api/analyze', { root_path: rootPath, ...options });
 }
 
+export function loadRepositorySubgraph(rootPath: string, focusPath: string, options: AnalyzeOptions): Promise<GraphResponse> {
+  return postJson<GraphResponse>('/api/subgraph', { root_path: rootPath, focus_path: focusPath, depth: 1, ...options });
+}
+
 export function summarizeFile(rootPath: string, filePath: string, cacheOnly = false): Promise<SummaryResponse> {
   return postJson<SummaryResponse>('/api/summarize', {
     root_path: rootPath,

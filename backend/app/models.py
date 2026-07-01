@@ -37,6 +37,11 @@ class AnalyzeRequest(BaseModel):
         return str(Path(value).expanduser())
 
 
+class SubgraphRequest(AnalyzeRequest):
+    focus_path: str = Field(..., min_length=1)
+    depth: int = Field(default=1, ge=0, le=3)
+
+
 class FileMetrics(BaseModel):
     loc: int
     total_lines: int

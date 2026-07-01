@@ -29,6 +29,7 @@ from app.models import (
     RepoReport,
     ReportFinding,
     RouteSummary,
+    SubgraphRequest,
 )
 from app.parsers import Dependency, parse_dependencies, parse_symbols
 from app.scanner import ScannedFile, scan_repository
@@ -142,6 +143,60 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
             truncated=scan_result.truncated,
             warnings=scan_result.warnings,
         ),
+    )
+
+
+def build_subgraph(root: Path, request: SubgraphRequest) -> GraphResponse:
+    return slice_subgraph(build_graph(root, request), request)
+
+
+def slice_subgraph(graph: GraphResponse, request: SubgraphRequest) -> GraphResponse:
+    node_ids = {node.id for node in graph.nodes}
+    if request.focus_path not in node_ids:
+        raise ValueError(f"focus_path is not in the analyzed graph: {request.focus_path}")
+
+    keep = {request.focus_path}
+    frontier = {request.focus_path}
+    for _ in range(request.depth):
+        next_frontier: set[str] = set()
+        for edge in graph.edges:
+            if edge.source in frontier:
+                next_frontier.add(edge.target)
+            if edge.target in frontier:
+                next_frontier.add(edge.source)
+        next_frontier -= keep
+        keep |= next_frontier
+        frontier = next_frontier
+        if not frontier:
+            break
+
+    nodes = [node.model_copy(deep=True) for node in graph.nodes if node.id in keep]
+    edges = [edge for edge in graph.edges if edge.source in keep and edge.target in keep]
+    for node in nodes:
+        node.imports = [path for path in node.imports if path in keep]
+        node.imported_by = [path for path in node.imported_by if path in keep]
+        node.metrics.dependency_count = len(node.imports)
+        node.metrics.dependent_count = len(node.imported_by)
+    warnings = [*graph.stats.warnings, f"Backend subgraph centered on {request.focus_path} with depth {request.depth}."]
+    return graph.model_copy(
+        update={
+            "nodes": nodes,
+            "edges": edges,
+            "folder_summaries": build_folder_summaries(nodes),
+            "package_summaries": build_package_summaries(nodes),
+            "package_edges": build_package_edges(nodes),
+            "routes": [route for route in graph.routes if route.file_path in keep],
+            "cycles": [cycle for cycle in graph.cycles if set(cycle.files) <= keep],
+            "repo_report": RepoReport(),
+            "stats": GraphStats(
+                total_files_found=graph.stats.total_files_found,
+                analyzed_files=len(nodes),
+                skipped_files=graph.stats.skipped_files,
+                skipped_reasons=graph.stats.skipped_reasons,
+                truncated=graph.stats.truncated,
+                warnings=warnings,
+            ),
+        }
     )
 
 
