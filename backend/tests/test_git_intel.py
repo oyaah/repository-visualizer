@@ -10,6 +10,7 @@ from app.graph import (
     build_package_edges,
     build_package_summaries,
     dead_code_findings,
+    find_orphans,
     is_test_path,
 )
 from app.graph import build_graph
@@ -154,3 +155,16 @@ def test_is_test_path() -> None:
     assert is_test_path("tests/test_x.py")
     assert is_test_path("src/foo.test.tsx")
     assert not is_test_path("src/foo.py")
+
+
+def test_find_orphans_lists_unimported_non_entry_files() -> None:
+    used = _node("app/used.py", loc=50, dependents=2)
+    used.imported_by = ["app/main.py", "app/api.py"]
+    orphan = _node("app/orphan.py", loc=80, dependents=0)
+    test_file = _node("tests/test_used.py", loc=80, dependents=0)
+
+    orphans = find_orphans([used, orphan, test_file], entry_paths=set())
+
+    paths = {finding.file_path for finding in orphans}
+    assert paths == {"app/orphan.py"}
+    assert orphans[0].kind == "orphan"
