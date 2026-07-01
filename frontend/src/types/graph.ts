@@ -16,6 +16,17 @@ export type CodeSymbol = {
   complexity: number;
 };
 
+export type FileGitStats = {
+  commits: number;
+  churn: number;
+  fix_commits: number;
+  distinct_authors: number;
+  primary_author: string | null;
+  primary_author_share: number;
+  last_modified: string | null;
+  recency_days: number | null;
+};
+
 export type CodeHint = {
   kind: string;
   title: string;
@@ -38,6 +49,7 @@ export type GraphNode = {
   external_imports: string[];
   symbols?: CodeSymbol[];
   hints?: CodeHint[];
+  git?: FileGitStats | null;
 };
 
 export type GraphEdge = {
@@ -79,6 +91,22 @@ export type PackageSummary = {
   dependency_count: number;
   dependent_count: number;
   highest_risk_files: string[];
+  bus_factor?: number | null;
+  primary_author?: string | null;
+  churn?: number;
+};
+
+export type PackageEdge = {
+  source: string;
+  target: string;
+  count: number;
+};
+
+export type GitSummary = {
+  available: boolean;
+  total_commits: number;
+  capped: boolean;
+  note: string | null;
 };
 
 export type CycleSummary = {
@@ -115,8 +143,10 @@ export type GraphResponse = {
   edges: GraphEdge[];
   folder_summaries: FolderSummary[];
   package_summaries?: PackageSummary[];
+  package_edges?: PackageEdge[];
   cycles: CycleSummary[];
   repo_report: RepoReport;
+  git?: GitSummary;
   ignored_directories: string[];
   stats: GraphStats;
 };

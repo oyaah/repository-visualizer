@@ -85,6 +85,22 @@ export function NodePanel({ rootPath, node, graph }: Props) {
         <Metric label="Used by" value={node.metrics.dependent_count} />
       </dl>
 
+      {node.git ? (
+        <section className="panel-section git-section">
+          <h3>History</h3>
+          <dl className="git-grid">
+            <Metric label="Commits" value={node.git.commits} />
+            <Metric label="Churn" value={node.git.churn} />
+            <Metric label="Bug fixes" value={node.git.fix_commits} />
+            <Metric label="Authors" value={node.git.distinct_authors} />
+          </dl>
+          <p className="git-meta">
+            {node.git.primary_author ? <>Owner <strong>@{node.git.primary_author}</strong> ({Math.round(node.git.primary_author_share * 100)}%). </> : null}
+            {node.git.recency_days != null ? <>Last touched {node.git.recency_days} {node.git.recency_days === 1 ? 'day' : 'days'} ago.</> : null}
+          </p>
+        </section>
+      ) : null}
+
       <Section title="Dependencies" items={node.imports} fallback="No local dependencies." />
       <Section title="Dependents" items={node.imported_by} fallback="No local dependents." />
       <SymbolSection symbols={node.symbols ?? []} />

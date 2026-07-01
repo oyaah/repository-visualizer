@@ -48,6 +48,17 @@ class FileMetrics(BaseModel):
     dependent_count: int = 0
 
 
+class FileGitStats(BaseModel):
+    commits: int
+    churn: int
+    fix_commits: int
+    distinct_authors: int
+    primary_author: str | None = None
+    primary_author_share: float = 0.0
+    last_modified: str | None = None
+    recency_days: int | None = None
+
+
 class CodeSymbol(BaseModel):
     name: str
     kind: str
@@ -77,6 +88,7 @@ class GraphNode(BaseModel):
     external_imports: list[str] = Field(default_factory=list)
     symbols: list[CodeSymbol] = Field(default_factory=list)
     hints: list[CodeHint] = Field(default_factory=list)
+    git: FileGitStats | None = None
 
 
 class GraphEdge(BaseModel):
@@ -112,6 +124,22 @@ class PackageSummary(BaseModel):
     dependency_count: int
     dependent_count: int
     highest_risk_files: list[str] = Field(default_factory=list)
+    bus_factor: int | None = None
+    primary_author: str | None = None
+    churn: int = 0
+
+
+class PackageEdge(BaseModel):
+    source: str
+    target: str
+    count: int
+
+
+class GitSummary(BaseModel):
+    available: bool
+    total_commits: int = 0
+    capped: bool = False
+    note: str | None = None
 
 
 class CycleSummary(BaseModel):
@@ -148,8 +176,10 @@ class GraphResponse(BaseModel):
     edges: list[GraphEdge]
     folder_summaries: list[FolderSummary] = Field(default_factory=list)
     package_summaries: list[PackageSummary] = Field(default_factory=list)
+    package_edges: list[PackageEdge] = Field(default_factory=list)
     cycles: list[CycleSummary] = Field(default_factory=list)
     repo_report: RepoReport = Field(default_factory=RepoReport)
+    git: GitSummary = Field(default_factory=lambda: GitSummary(available=False))
     ignored_directories: list[str]
     stats: GraphStats
 
