@@ -196,6 +196,31 @@ describe('GraphCanvas', () => {
     expect(screen.queryByText('readme.md')).not.toBeInTheDocument();
   });
 
+  it('loads selected-file neighborhoods from the backend when available', async () => {
+    const onLoadSubgraph = vi.fn().mockResolvedValue(graph);
+    render(
+      <GraphCanvas
+        graph={graphWithOrphan}
+        selectedNodeId="src/main.py"
+        scanOptions={{ max_files: 1000, include_tests: true, include_vendor: false }}
+        onLoadSubgraph={onLoadSubgraph}
+        onSelectNode={() => undefined}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Neighborhood' }));
+
+    await waitFor(() =>
+      expect(onLoadSubgraph).toHaveBeenCalledWith('/tmp/repo', 'src/main.py', {
+        max_files: 1000,
+        include_tests: true,
+        include_vendor: false
+      })
+    );
+    await waitFor(() => expect(screen.getByText('2 of 3 files')).toBeInTheDocument());
+    expect(screen.queryByText('readme.md')).not.toBeInTheDocument();
+  });
+
   it('moves selection when the active node is filtered out', async () => {
     const onSelectNode = vi.fn();
     render(<GraphCanvas graph={graph} selectedNodeId="src/main.py" onSelectNode={onSelectNode} />);

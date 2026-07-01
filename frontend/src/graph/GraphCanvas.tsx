@@ -11,7 +11,7 @@ import {
   type Node as FlowNode,
   type NodeProps
 } from '@xyflow/react';
-import type { GraphNode, GraphResponse, PackageSummary } from '../types/graph';
+import type { AnalyzeOptions, GraphNode, GraphResponse, PackageSummary } from '../types/graph';
 import { applyLayout, clearSavedLayout, readSavedLayout, saveNodeLayout } from '../utils/layoutStorage';
 import { buildFileFlow, buildPackageFlow, type ExternalFlowNode } from './layout';
 
@@ -22,10 +22,12 @@ type GraphPreset = 'all' | 'hide-tests' | 'connected' | 'hubs' | 'issues';
 type Props = {
   graph: GraphResponse | null;
   selectedNodeId: string | null;
+  scanOptions?: AnalyzeOptions;
+  onLoadSubgraph?: (rootPath: string, focusPath: string, options: AnalyzeOptions) => Promise<GraphResponse>;
   onSelectNode: (node: GraphNode | null) => void;
 };
 
-export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
+export function GraphCanvas({ graph, selectedNodeId, scanOptions, onLoadSubgraph, onSelectNode }: Props) {
   const [query, setQuery] = useState('');
   const [extension, setExtension] = useState('all');
   const [folder, setFolder] = useState('all');
@@ -33,6 +35,9 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
   const [graphMode, setGraphMode] = useState<GraphMode>('all');
   const [viewMode, setViewMode] = useState<ViewMode>('files');
   const [showExternal, setShowExternal] = useState(false);
+  const [serverSubgraph, setServerSubgraph] = useState<GraphResponse | null>(null);
+  const [subgraphLoading, setSubgraphLoading] = useState(false);
+  const [subgraphError, setSubgraphError] = useState<string | null>(null);
   const [layoutVersion, setLayoutVersion] = useState(0);
   const extensions = useMemo(() => {
     const values = new Set((graph?.nodes ?? []).map((node) => node.extension || 'file'));
@@ -42,8 +47,42 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
     const values = new Set((graph?.nodes ?? []).map((node) => topFolder(node.path)));
     return Array.from(values).sort();
   }, [graph]);
+  useEffect(() => {
+    if (!graph || graphMode !== 'neighborhood' || !selectedNodeId || !onLoadSubgraph || !scanOptions) {
+      setServerSubgraph(null);
+      setSubgraphLoading(false);
+      setSubgraphError(null);
+      return;
+    }
+    let cancelled = false;
+    setServerSubgraph(null);
+    setSubgraphLoading(true);
+    setSubgraphError(null);
+    onLoadSubgraph(graph.root_path, selectedNodeId, scanOptions)
+      .then((subgraph) => {
+        if (!cancelled) {
+          setServerSubgraph(subgraph);
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setServerSubgraph(null);
+          setSubgraphError(error instanceof Error ? error.message : 'Subgraph load failed');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setSubgraphLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [graph, graphMode, onLoadSubgraph, scanOptions, selectedNodeId]);
   const visibleGraph = useMemo(() => {
-    const candidateNodes = nodesForMode(graph, graphMode, selectedNodeId);
+    const sourceGraph = graphMode === 'neighborhood' && serverSubgraph ? serverSubgraph : graph;
+    const mode = serverSubgraph ? 'all' : graphMode;
+    const candidateNodes = nodesForMode(sourceGraph, mode, selectedNodeId);
     const normalizedQuery = query.trim().toLowerCase();
     const nodes = candidateNodes.filter((node) => {
       const matchesQuery =
@@ -56,14 +95,14 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
       return matchesQuery && matchesExtension && matchesFolder && matchesPreset(node, preset);
     });
     const visibleIds = new Set(nodes.map((node) => node.id));
-    const edges = (graph?.edges ?? []).filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
+    const edges = (sourceGraph?.edges ?? []).filter((edge) => visibleIds.has(edge.source) && visibleIds.has(edge.target));
     return { nodes, edges };
-  }, [extension, folder, graph, graphMode, preset, query, selectedNodeId]);
+  }, [extension, folder, graph, graphMode, preset, query, selectedNodeId, serverSubgraph]);
   const savedLayout = useMemo(() => readSavedLayout(graph?.root_path ?? '', graph?.nodes ?? []), [graph?.nodes, graph?.root_path, layoutVersion]);
   const fileFlow = useMemo(() => buildFileFlow(visibleGraph.nodes, visibleGraph.edges, showExternal), [showExternal, visibleGraph]);
   const flowNodes = useMemo(() => applyLayout(fileFlow.flowNodes, savedLayout), [fileFlow.flowNodes, savedLayout]);
   const flowEdges = fileFlow.flowEdges;
-  const flowKey = `${graph?.root_path ?? ''}:${graphMode}:${preset}:${extension}:${folder}:${query}:${showExternal}:${selectedNodeId ?? ''}:${layoutVersion}`;
+  const flowKey = `${graph?.root_path ?? ''}:${graphMode}:${preset}:${extension}:${folder}:${query}:${showExternal}:${selectedNodeId ?? ''}:${serverSubgraph?.stats.analyzed_files ?? 'full'}:${layoutVersion}`;
   useEffect(() => {
     if (!graph) {
       return;
@@ -118,6 +157,8 @@ export function GraphCanvas({ graph, selectedNodeId, onSelectNode }: Props) {
           <>
             <strong>{visibleGraph.nodes.length} of {graph.nodes.length} files</strong>
             <span>{visibleGraph.edges.length} of {graph.edges.length} local edges</span>
+            {subgraphLoading ? <span>Loading subgraph...</span> : null}
+            {subgraphError ? <span className="warning-pill">{subgraphError}</span> : null}
             <span>{graph.stats.analyzed_files} analyzed / {graph.stats.total_files_found} found</span>
             {graph.stats.skipped_files ? <span>{graph.stats.skipped_files} skipped</span> : null}
             {graph.ignored_directories.length ? <span>Ignored: {graph.ignored_directories.join(', ')}</span> : null}

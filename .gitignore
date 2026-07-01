@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+.memory/
+CLAUDE.local.md
 __pycache__/
 .pytest_cache/
 .ruff_cache/

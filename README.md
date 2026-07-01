@@ -25,7 +25,7 @@ It is built for onboarding and refactoring. Instead of dumping a giant graph and
 - **Package graph view** that compresses the repo into risk-ranked packages with ownership, bus factor, and weighted cross-package edges; click a package to drill into its files.
 - **Symbol hotspots** for functions/classes inside Python, JavaScript/TypeScript, Go, Java, Ruby, Rust, PHP, C#, Kotlin, Swift, and Scala files, capped to the symbols most likely to matter.
 - **Static security, framework, and route hints** for obvious secret-like values, unsafe APIs, FastAPI/Flask/Django, Express, Spring, Go HTTP, Rails, Laravel, Rust web surfaces, React roots, and Node-style route files.
-- **Large-repo controls** with file caps, truncation warnings, graph search, extension/folder filters, hide-tests, connected-only, hubs, issues, and neighborhood mode.
+- **Large-repo controls** with file caps, truncation warnings, graph search, extension/folder filters, hide-tests, connected-only, hubs, issues, and backend-backed neighborhood loading for selected files.
 - **Selected-file impact** showing direct dependencies, direct dependents, second-order dependents, likely affected tests, and Git history.
 - **React Flow canvas** with file and package views, an external-dependency layer toggle, draggable nodes, zoom/pan, minimap, saved node positions, and reset layout.
 - **OpenAI summaries** cached locally by file content and prompt version. Without `OPENAI_API_KEY`, the graph still works and the UI shows AI disabled.
@@ -124,6 +124,7 @@ CI runs backend tests, frontend tests, and frontend build on pull requests.
 
 - `GET /api/health` checks backend health.
 - `POST /api/analyze` scans a local path and returns graph JSON.
+- `POST /api/subgraph` returns a focused selected-file neighborhood for large-repo browsing, reusing the cached analysis when the root path and scan options match.
 - `POST /api/summarize` summarizes a selected file with OpenAI or returns cached/disabled state.
 
 Minimal analyze request:
@@ -157,8 +158,13 @@ Use these controls for large repos:
 - Raise or lower **Max files** before analysis.
 - Turn off **Tests** if test-heavy repos drown out core source.
 - Use graph presets: **Hide tests**, **Connected only**, **Hubs**, and **Issues**.
-- Use **Neighborhood** mode after selecting a risky file.
+- Use **Neighborhood** mode after selecting a risky file. The frontend asks the backend for that focused subgraph, reuses the current cached scan when possible, and falls back to the current graph when the endpoint is unavailable.
 - Export Markdown, CSV, or JSON when you need a compact review artifact.
+
+## Known Limitations
+
+- Static edge timing is heuristic. The analyzer labels likely top-level, lazy/local, conditional, type-checking, re-export, and dynamic edges from source structure; it is not runtime tracing.
+- Large-repo neighborhood loading is backend-backed, but full streamed graph output is still future work.
 
 Dogfood results:
 

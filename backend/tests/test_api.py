@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 import app.ai as ai
+import app.main as main_module
 from app.main import app
 
 
@@ -50,6 +51,63 @@ def test_analyze_applies_scan_options(tmp_path: Path) -> None:
     assert data["stats"]["total_files_found"] == 3
     assert data["stats"]["skipped_files"] == 2
     assert data["stats"]["truncated"] is True
+
+
+def test_subgraph_returns_backend_filtered_neighborhood(tmp_path: Path) -> None:
+    (tmp_path / "a.py").write_text("import b\n", encoding="utf-8")
+    (tmp_path / "b.py").write_text("import c\n", encoding="utf-8")
+    (tmp_path / "c.py").write_text("VALUE = 1\n", encoding="utf-8")
+    (tmp_path / "orphan.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    response = client.post(
+        "/api/subgraph",
+        json={"root_path": str(tmp_path), "focus_path": "b.py", "depth": 1},
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert {node["id"] for node in data["nodes"]} == {"a.py", "b.py", "c.py"}
+    assert {edge["id"] for edge in data["edges"]} == {
+        "a.py->b.py:import:top_level",
+        "b.py->c.py:import:top_level",
+    }
+    assert data["stats"]["analyzed_files"] == 3
+    assert "Backend subgraph centered on b.py" in data["stats"]["warnings"][-1]
+    assert data["repo_report"]["start_here"] == []
+    by_id = {node["id"]: node for node in data["nodes"]}
+    assert by_id["b.py"]["imports"] == ["c.py"]
+    assert by_id["b.py"]["imported_by"] == ["a.py"]
+    assert by_id["b.py"]["metrics"]["dependency_count"] == 1
+    assert by_id["b.py"]["metrics"]["dependent_count"] == 1
+
+
+def test_subgraph_reuses_cached_analysis(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "a.py").write_text("import b\n", encoding="utf-8")
+    (tmp_path / "b.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    analyze_response = client.post("/api/analyze", json={"root_path": str(tmp_path)})
+    assert analyze_response.status_code == 200
+
+    def fail_build(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("subgraph should reuse the cached analyze result")
+
+    monkeypatch.setattr(main_module, "build_graph", fail_build)
+    response = client.post("/api/subgraph", json={"root_path": str(tmp_path), "focus_path": "a.py"})
+
+    assert response.status_code == 200
+    assert {node["id"] for node in response.json()["nodes"]} == {"a.py", "b.py"}
+
+
+def test_subgraph_rejects_focus_outside_analyzed_graph(tmp_path: Path) -> None:
+    (tmp_path / "a.py").write_text("VALUE = 1\n", encoding="utf-8")
+
+    response = client.post(
+        "/api/subgraph",
+        json={"root_path": str(tmp_path), "focus_path": "missing.py"},
+    )
+
+    assert response.status_code == 400
+    assert "focus_path" in response.json()["detail"]
 
 
 def test_analyze_rejects_invalid_scan_options(tmp_path: Path) -> None:
