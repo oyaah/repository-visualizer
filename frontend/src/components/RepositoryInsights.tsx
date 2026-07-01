@@ -1,7 +1,7 @@
-import { AlertTriangle, BarChart3, Download, Flame, GitMerge, ListTree, Play } from 'lucide-react';
+import { AlertTriangle, BarChart3, Download, Flame, GitMerge, ListTree, Network, Play, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
-import type { CycleSummary, EntryPointSummary, FolderSummary, GraphNode, GraphResponse, PackageSummary, ReportFinding } from '../types/graph';
+import type { CycleSummary, EntryPointSummary, FolderSummary, GraphNode, GraphResponse, PackageEdge, PackageSummary, ReportFinding } from '../types/graph';
 import { downloadCsvReport, downloadJsonReport, downloadMarkdownReport } from '../utils/reportExport';
 
 type Props = {
@@ -52,6 +52,15 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
       <EntryPointList entries={insights?.entryPoints ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <ReadingOrder paths={insights?.readingOrder ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <FolderList folders={insights?.folders ?? []} />
+      <ModuleMap edges={insights?.moduleMap ?? []} />
+      <InsightList
+        title="Possibly unused"
+        icon={<Trash2 size={15} />}
+        items={insights?.orphans ?? []}
+        valueFor={(node) => `${node.metrics.loc} LoC`}
+        onSelectNode={onSelectNode}
+        fallback="No obviously unused files detected."
+      />
       <CycleList cycles={insights?.cycles ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <InsightList title="Largest files" icon={<ListTree size={15} />} items={insights?.largest ?? []} valueFor={(node) => `${node.metrics.loc} LoC`} onSelectNode={onSelectNode} />
       <InsightList title="Complexity" icon={<BarChart3 size={15} />} items={insights?.complex ?? []} valueFor={(node) => `Cx ${node.metrics.complexity}`} onSelectNode={onSelectNode} />
@@ -83,6 +92,10 @@ function buildInsights(graph: GraphResponse) {
   const unresolved = topBy(graph.nodes, (node) => node.unresolved_imports.length);
   const cycles = graph.cycles.slice(0, 3);
   const nodeById = new Map(graph.nodes.map((node) => [node.id, node]));
+  const orphans = (graph.repo_report.orphans ?? [])
+    .map((finding) => nodeById.get(finding.file_path))
+    .filter((node): node is GraphNode => Boolean(node))
+    .slice(0, 4);
 
   return {
     nodeById,
@@ -92,6 +105,8 @@ function buildInsights(graph: GraphResponse) {
     readingOrder: graph.repo_report.reading_order.slice(0, 6),
     packages: (graph.package_summaries ?? []).slice(0, 5),
     folders: graph.folder_summaries.slice(0, 3),
+    moduleMap: (graph.package_edges ?? []).slice(0, 6),
+    orphans,
     cycles,
     largest,
     complex,
@@ -308,6 +323,28 @@ function PackageList({
         </ol>
       ) : (
         <p>No package summaries found.</p>
+      )}
+    </section>
+  );
+}
+
+function ModuleMap({ edges }: { edges: PackageEdge[] }) {
+  return (
+    <section className="insight-section">
+      <h3><Network size={15} />Module map</h3>
+      {edges.length ? (
+        <ol>
+          {edges.map((edge) => (
+            <li key={`${edge.source}->${edge.target}`}>
+              <div className="folder-insight-row">
+                <span>{edge.source} &rarr; {edge.target}</span>
+                <strong>{edge.count} {edge.count === 1 ? 'dep' : 'deps'}</strong>
+              </div>
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p>No cross-package dependencies in analyzed files.</p>
       )}
     </section>
   );

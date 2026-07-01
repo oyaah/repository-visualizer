@@ -263,7 +263,26 @@ def build_repo_report(root: Path, nodes: list[GraphNode], cycles: list[CycleSumm
             + [node.path for node in sorted(nodes, key=lambda item: (-item.metrics.risk_score, item.path))[:3]]
         )
     )
-    return RepoReport(start_here=findings, entry_points=entry_points[:8], reading_order=reading_order[:12])
+    orphans = find_orphans(nodes, entry_paths)
+    return RepoReport(start_here=findings, entry_points=entry_points[:8], reading_order=reading_order[:12], orphans=orphans[:10])
+
+
+def find_orphans(nodes: list[GraphNode], entry_paths: set[str]) -> list[ReportFinding]:
+    orphans: list[ReportFinding] = []
+    for node in sorted(nodes, key=lambda item: (-item.metrics.loc, item.path)):
+        if node.imported_by or node.path in entry_paths or is_package_init(node.path) or is_test_path(node.path):
+            continue
+        orphans.append(
+            ReportFinding(
+                kind="orphan",
+                title="Possibly unused file",
+                file_path=node.path,
+                detail=f"Nothing imports this file and it is not a detected entry point ({node.metrics.loc} LoC). It may be dead code or a manually run script.",
+                severity="low",
+                confidence="low",
+            )
+        )
+    return orphans
 
 
 SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}

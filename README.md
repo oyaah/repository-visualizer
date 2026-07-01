@@ -11,7 +11,7 @@ It is built for onboarding and refactoring. Instead of dumping a giant graph and
 - What could break if I change this file?
 - Which file-level functions/classes deserve attention before a refactor?
 
-![Repository Visualizer in package view: Flask compressed into risk-ranked packages with ownership and bus factor on the left, churn-driven Start-here findings, risk hotspots, and packages by risk on the right](docs/assets/repository-visualizer.png)
+![Repository Visualizer file view: a risk-colored dependency graph with per-file Git badges on the left, and churn-driven Start-here findings, risk hotspots, and packages by risk on the right](docs/assets/repository-visualizer.png)
 
 ## Features
 
@@ -168,19 +168,3 @@ Dogfood results:
 | Large | `django/django` | 1000 / 2969 | 3695 | ~1.7 s |
 
 See [docs/dogfood.md](docs/dogfood.md) for what the dogfood pass found and changed.
-
-## Known Limitations
-
-- Static edge timing is heuristic. It labels top-level, lazy/local, conditional, type-checking, re-export, and dynamic edges, but it is not runtime tracing.
-- Dynamic framework behavior is only partially visible. Some routes, templates, signals, plugin loading, and app registries may not appear as graph edges.
-- External dependencies are stored as metadata and shown as an optional toggleable layer, not as first-class resolved nodes.
-- Git history is read from a bounded slice of recent commits (capped on very large repos) and does not follow file renames across the full history.
-- `.gitignore` support covers common root patterns and directory ignores, not every advanced Git ignore case.
-- Very large repos still need backend-backed subgraph loading or streamed output for full-repo interactive browsing beyond the file cap.
-
-## Useful Next Features
-
-- Backend-backed subgraph loading for very large repositories.
-- More framework-aware layers for templates, signals, plugin loading, and app registries.
-- Method/function-level call graphs and language coverage beyond Python, JS/TS, and C/C++.
-- Scan history so two branches or two points in time can be compared in the UI.
