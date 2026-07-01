@@ -5,26 +5,28 @@ Repository Visualizer is a local-first codebase understanding tool. Point it at 
 It is built for onboarding and refactoring. Instead of dumping a giant graph and calling it insight, it answers the questions that matter first:
 
 - Where should I start reading?
-- Which files are risky, bloated, or highly coupled?
+- Which files are risky, bloated, highly coupled, or changed most often?
 - What imports what, and is that dependency top-level, lazy, conditional, type-checking, re-exported, or dynamic?
-- Which package/folder owns most of the risk?
+- Which package/folder owns most of the risk, and who is its primary author?
 - What could break if I change this file?
 - Which file-level functions/classes deserve attention before a refactor?
 
-![Repository Visualizer mapping its own backend: dependency graph on the left, ranked "Start here" insights on the right](docs/assets/repository-visualizer.png)
+![Repository Visualizer in package view: Flask compressed into risk-ranked packages with ownership and bus factor on the left, churn-driven Start-here findings, risk hotspots, and packages by risk on the right](docs/assets/repository-visualizer.png)
 
 ## Features
 
 - **Local scanning** through a FastAPI backend. Target code is read, not executed.
 - **Dependency extraction** for Python, JavaScript/TypeScript, TypeScript path aliases, dynamic imports, re-exports, type-checking imports, lazy/local imports, and C/C++ includes.
 - **Scoped edge labels** so dependencies are not all treated equally. Top-level imports, lazy/local imports, conditional imports, type-checking imports, re-exports, and dynamic imports are labeled separately.
-- **Repository insights** with ranked "Start here" findings, confidence labels, likely entry points, reading order, package summaries, folder summaries, cycles, large files, unresolved imports, and dependency hubs.
-- **Risk scoring** for files and packages using size, complexity, coupling, unresolved imports, and static security hints.
+- **Repository insights** with ranked "Start here" findings, confidence labels, risk hotspots, likely entry points, reading order, packages by risk, folder summaries, cycles, large files, possibly-unused files, unresolved imports, and dependency hubs.
+- **Git intelligence** (when the scan root is inside a Git repository): per-file churn, bug-fix-commit count, recency, primary owner with ownership share, and package-level bus factor, read from recent history. It degrades cleanly to static-only metrics outside a repo, with no fabricated values.
+- **Risk scoring** for files and packages from size, complexity, coupling, unresolved imports, static security hints, and — when available — Git churn and bug-fix frequency.
+- **Package graph view** that compresses the repo into risk-ranked packages with ownership, bus factor, and weighted cross-package edges; click a package to drill into its files.
 - **Symbol hotspots** for functions/classes inside Python and JavaScript/TypeScript files, capped to the symbols most likely to matter.
 - **Static security and framework hints** for obvious secret-like values, unsafe APIs, FastAPI/Flask/Django surfaces, React roots, and Node-style route files.
 - **Large-repo controls** with file caps, truncation warnings, graph search, extension/folder filters, hide-tests, connected-only, hubs, issues, and neighborhood mode.
-- **Selected-file impact** showing direct dependencies, direct dependents, second-order dependents, and likely affected tests.
-- **React Flow canvas** with draggable nodes, zoom/pan, minimap, saved node positions, and reset layout.
+- **Selected-file impact** showing direct dependencies, direct dependents, second-order dependents, likely affected tests, and Git history.
+- **React Flow canvas** with file and package views, an external-dependency layer toggle, draggable nodes, zoom/pan, minimap, saved node positions, and reset layout.
 - **OpenAI summaries** cached locally by file content and prompt version. Without `OPENAI_API_KEY`, the graph still works and the UI shows AI disabled.
 - **Markdown, CSV, and JSON exports** for onboarding notes, PR planning, spreadsheet review, or sharing a scan snapshot.
 
@@ -134,7 +136,7 @@ Minimal analyze request:
 }
 ```
 
-The analyze response includes `nodes`, scoped `edges`, `folder_summaries`, `package_summaries`, `cycles`, `repo_report`, and scan `stats` such as `total_files_found`, `analyzed_files`, `skipped_files`, `truncated`, and `warnings`.
+The analyze response includes `nodes`, scoped `edges`, `folder_summaries`, `package_summaries`, `package_edges`, `cycles`, `repo_report`, a `git` summary, and scan `stats` such as `total_files_found`, `analyzed_files`, `skipped_files`, `truncated`, and `warnings`.
 
 Each file node includes:
 
@@ -143,6 +145,7 @@ Each file node includes:
 - unresolved and external imports
 - top symbol hotspots
 - static security/framework hints
+- Git history (when available): commits, churn, bug-fix commits, primary owner, and recency
 
 ## Large Repository Behavior
 
@@ -170,13 +173,14 @@ See [docs/dogfood.md](docs/dogfood.md) for what the dogfood pass found and chang
 
 - Static edge timing is heuristic. It labels top-level, lazy/local, conditional, type-checking, re-export, and dynamic edges, but it is not runtime tracing.
 - Dynamic framework behavior is only partially visible. Some routes, templates, signals, plugin loading, and app registries may not appear as graph edges.
-- External dependencies are stored as metadata, not rendered as nodes.
+- External dependencies are stored as metadata and shown as an optional toggleable layer, not as first-class resolved nodes.
+- Git history is read from a bounded slice of recent commits (capped on very large repos) and does not follow file renames across the full history.
 - `.gitignore` support covers common root patterns and directory ignores, not every advanced Git ignore case.
 - Very large repos still need backend-backed subgraph loading or streamed output for full-repo interactive browsing beyond the file cap.
 
 ## Useful Next Features
 
 - Backend-backed subgraph loading for very large repositories.
-- Git churn overlays for files that are both risky and frequently changed.
 - More framework-aware layers for templates, signals, plugin loading, and app registries.
-- Optional package-level graph mode in addition to file-level React Flow.
+- Method/function-level call graphs and language coverage beyond Python, JS/TS, and C/C++.
+- Scan history so two branches or two points in time can be compared in the UI.

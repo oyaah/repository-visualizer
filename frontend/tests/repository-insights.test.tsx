@@ -117,8 +117,8 @@ describe('RepositoryInsights', () => {
     expect(screen.getByText('Likely entry points')).toBeInTheDocument();
     expect(screen.getByText('Likely FastAPI app')).toBeInTheDocument();
     expect(screen.getByText('Reading order')).toBeInTheDocument();
-    expect(screen.getByText('Top packages')).toBeInTheDocument();
-    expect(screen.getByText('Risk 44 / 3 files')).toBeInTheDocument();
+    expect(screen.getByText('Packages by risk')).toBeInTheDocument();
+    expect(screen.getByText('risk 44 · 3 files')).toBeInTheDocument();
     expect(screen.getByText('Top folders')).toBeInTheDocument();
     expect(screen.getAllByText('src').length).toBeGreaterThan(1);
     expect(screen.getByText('190 LoC / 3 files')).toBeInTheDocument();

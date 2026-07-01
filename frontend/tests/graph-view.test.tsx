@@ -233,4 +233,36 @@ describe('GraphCanvas', () => {
     render(<GraphCanvas graph={null} selectedNodeId={null} onSelectNode={() => undefined} />);
     expect(screen.getByText('No repository loaded')).toBeInTheDocument();
   });
+
+  it('switches to the package view', () => {
+    const withPackages: GraphResponse = {
+      ...graph,
+      package_summaries: [
+        { name: 'src', files: 2, loc: 60, average_complexity: 3, average_risk: 70, dependency_count: 0, dependent_count: 1, highest_risk_files: ['src/main.py'], bus_factor: 1, primary_author: 'alice', churn: 100 }
+      ],
+      package_edges: [{ source: 'tests', target: 'src', count: 1 }]
+    };
+    render(<GraphCanvas graph={withPackages} selectedNodeId={null} onSelectNode={() => undefined} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Packages' }));
+
+    expect(screen.getByText('1 packages')).toBeInTheDocument();
+    expect(screen.getByText('1 cross-package links')).toBeInTheDocument();
+  });
+
+  it('renders external dependency nodes when toggled on', () => {
+    const withExternal: GraphResponse = {
+      ...graph,
+      nodes: graph.nodes.map((node, index) =>
+        index === 0 ? { ...node, external_imports: ['react', 'react-dom'] } : node
+      )
+    };
+    render(<GraphCanvas graph={withExternal} selectedNodeId={null} onSelectNode={() => undefined} />);
+
+    expect(screen.queryByText('react')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('External deps'));
+
+    expect(screen.getByText('react')).toBeInTheDocument();
+    expect(screen.getByText('react-dom')).toBeInTheDocument();
+  });
 });

@@ -1,4 +1,4 @@
-import { AlertTriangle, BarChart3, Download, GitMerge, ListTree, Play } from 'lucide-react';
+import { AlertTriangle, BarChart3, Download, Flame, GitMerge, ListTree, Play } from 'lucide-react';
 import { useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { CycleSummary, EntryPointSummary, FolderSummary, GraphNode, GraphResponse, PackageSummary, ReportFinding } from '../types/graph';
@@ -45,10 +45,12 @@ export function RepositoryInsights({ graph, onSelectNode }: Props) {
         <Stat label="Edges" value={graph.edges.length} />
         <Stat label="Skipped" value={graph.stats.skipped_files} />
       </div>
+      <p className="git-note">{graph.git?.available ? `Git history: ${graph.git.total_commits} commits read${graph.git.capped ? ' (capped)' : ''}.` : 'Git history unavailable — risk uses static metrics only.'}</p>
       <StartHere items={insights?.startHere ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
+      <InsightList title="Risk hotspots" icon={<Flame size={15} />} items={insights?.risky ?? []} valueFor={(node) => `risk ${node.metrics.risk_score ?? 0}`} onSelectNode={onSelectNode} fallback="No risk hotspots in analyzed files." />
+      <PackageList packages={insights?.packages ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <EntryPointList entries={insights?.entryPoints ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <ReadingOrder paths={insights?.readingOrder ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
-      <PackageList packages={insights?.packages ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <FolderList folders={insights?.folders ?? []} />
       <CycleList cycles={insights?.cycles ?? []} nodeById={insights?.nodeById ?? new Map()} onSelectNode={onSelectNode} />
       <InsightList title="Largest files" icon={<ListTree size={15} />} items={insights?.largest ?? []} valueFor={(node) => `${node.metrics.loc} LoC`} onSelectNode={onSelectNode} />
@@ -85,9 +87,10 @@ function buildInsights(graph: GraphResponse) {
   return {
     nodeById,
     startHere: graph.repo_report.start_here.slice(0, 4),
+    risky: topBy(graph.nodes, (node) => node.metrics.risk_score ?? 0),
     entryPoints: graph.repo_report.entry_points.slice(0, 4),
     readingOrder: graph.repo_report.reading_order.slice(0, 6),
-    packages: (graph.package_summaries ?? []).slice(0, 4),
+    packages: (graph.package_summaries ?? []).slice(0, 5),
     folders: graph.folder_summaries.slice(0, 3),
     cycles,
     largest,
@@ -286,16 +289,18 @@ function PackageList({
 }) {
   return (
     <section className="insight-section">
-      <h3><ListTree size={15} />Top packages</h3>
+      <h3><ListTree size={15} />Packages by risk</h3>
       {packages.length ? (
         <ol>
           {packages.map((item) => {
             const node = nodeById.get(item.highest_risk_files[0] ?? '');
+            const owner = item.primary_author ? ` · @${item.primary_author}` : '';
+            const bus = item.bus_factor != null ? ` · bus ${item.bus_factor}` : '';
             return (
               <li key={item.name}>
                 <button type="button" onClick={() => node && onSelectNode(node)}>
                   <span>{item.name}</span>
-                  <strong>Risk {item.average_risk} / {item.files} files</strong>
+                  <strong>risk {item.average_risk} · {item.files} files{bus}{owner}</strong>
                 </button>
               </li>
             );

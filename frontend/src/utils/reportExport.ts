@@ -12,6 +12,7 @@ export function buildMarkdownReport(graph: GraphResponse): string {
     `- Local edges: ${graph.edges.length}`,
     `- Skipped files: ${graph.stats.skipped_files}`,
     `- Truncated: ${graph.stats.truncated ? 'yes' : 'no'}`,
+    `- Git history: ${graph.git?.available ? `${graph.git.total_commits} commits read${graph.git.capped ? ' (capped)' : ''}` : 'unavailable'}`,
     '',
     '## Start Here',
     '',
@@ -41,7 +42,11 @@ export function buildMarkdownReport(graph: GraphResponse): string {
     '## Top Packages',
     '',
     listOrFallback(
-      (graph.package_summaries ?? []).slice(0, 8).map((summary) => `- \`${summary.name}\`: risk ${summary.average_risk}/100, ${summary.loc} LoC, ${summary.dependency_count} outgoing package deps, ${summary.dependent_count} incoming package deps`),
+      (graph.package_summaries ?? []).slice(0, 8).map((summary) => {
+        const owner = summary.primary_author ? `, owner @${summary.primary_author}` : '';
+        const bus = summary.bus_factor != null ? `, bus factor ${summary.bus_factor}` : '';
+        return `- \`${summary.name}\`: risk ${summary.average_risk}/100, ${summary.loc} LoC, ${summary.dependency_count} outgoing / ${summary.dependent_count} incoming package deps${owner}${bus}`;
+      }),
       '- No package summaries found.'
     ),
     '',
@@ -52,7 +57,7 @@ export function buildMarkdownReport(graph: GraphResponse): string {
         .sort((a, b) => (b.metrics.risk_score ?? 0) - (a.metrics.risk_score ?? 0) || a.path.localeCompare(b.path))
         .slice(0, 8)
         .filter((node) => (node.metrics.risk_score ?? 0) > 0)
-        .map((node) => `- \`${node.path}\`: risk ${node.metrics.risk_score}/100, maintainability ${node.metrics.maintainability ?? 'n/a'}, ${node.metrics.loc} LoC, Cx ${node.metrics.complexity}`),
+        .map((node) => `- \`${node.path}\`: risk ${node.metrics.risk_score}/100, maintainability ${node.metrics.maintainability ?? 'n/a'}, ${node.metrics.loc} LoC, Cx ${node.metrics.complexity}${node.git ? `, ${node.git.commits} commits, ${node.git.fix_commits} fixes` : ''}`),
       '- No risk signals found.'
     ),
     '',
@@ -77,7 +82,7 @@ export function downloadMarkdownReport(graph: GraphResponse): void {
 
 export function buildCsvReport(graph: GraphResponse): string {
   const rows = [
-    ['path', 'folder', 'extension', 'loc', 'complexity', 'maintainability', 'risk_score', 'dependencies', 'dependents', 'unresolved_imports', 'external_imports', 'symbols', 'hints'],
+    ['path', 'folder', 'extension', 'loc', 'complexity', 'maintainability', 'risk_score', 'dependencies', 'dependents', 'commits', 'churn', 'fix_commits', 'primary_author', 'unresolved_imports', 'external_imports', 'symbols', 'hints'],
     ...graph.nodes.map((node) => [
       node.path,
       node.folder || 'root',
@@ -88,6 +93,10 @@ export function buildCsvReport(graph: GraphResponse): string {
       String(node.metrics.risk_score ?? ''),
       String(node.metrics.dependency_count),
       String(node.metrics.dependent_count),
+      String(node.git?.commits ?? ''),
+      String(node.git?.churn ?? ''),
+      String(node.git?.fix_commits ?? ''),
+      node.git?.primary_author ?? '',
       node.unresolved_imports.join('; '),
       node.external_imports.join('; '),
       (node.symbols ?? []).map((symbol) => `${symbol.kind}:${symbol.name}:${symbol.line}`).join('; '),
