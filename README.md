@@ -12,7 +12,7 @@ It is built for onboarding and refactoring. Instead of dumping a giant graph and
 - What could break if I change this file?
 - Which file-level functions/classes deserve attention before a refactor?
 
-![Repository Visualizer file view: a risk-colored dependency graph with per-file Git badges on the left, and churn-driven Start-here findings, risk hotspots, and packages by risk on the right](docs/assets/repository-visualizer.png)
+![Repository Visualizer package view: a clean package graph with cross-package links, risk scores, repository insights, hotspots, and reading order](docs/assets/repository-visualizer.png)
 
 ## Features
 
