@@ -49,6 +49,8 @@ SUPPORTED_EXTENSIONS = {
     ".py",
     ".js",
     ".jsx",
+    ".mjs",
+    ".cjs",
     ".ts",
     ".tsx",
     ".c",
@@ -56,6 +58,16 @@ SUPPORTED_EXTENSIONS = {
     ".cc",
     ".cpp",
     ".hpp",
+    ".go",
+    ".java",
+    ".rb",
+    ".rs",
+    ".php",
+    ".cs",
+    ".kt",
+    ".kts",
+    ".swift",
+    ".scala",
 }
 
 BRANCH_TOKENS = {

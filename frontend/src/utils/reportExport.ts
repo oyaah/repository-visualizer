@@ -39,6 +39,13 @@ export function buildMarkdownReport(graph: GraphResponse): string {
       '- No cross-package dependencies found.'
     ),
     '',
+    '## Routes',
+    '',
+    listOrFallback(
+      (graph.routes ?? []).slice(0, 40).map((route) => `- \`${route.method} ${route.path}\` (${route.framework}) -> \`${route.file_path}\``),
+      '- No framework routes detected.'
+    ),
+    '',
     '## Possibly Unused Files',
     '',
     listOrFallback(

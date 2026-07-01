@@ -16,14 +16,15 @@ It is built for onboarding and refactoring. Instead of dumping a giant graph and
 ## Features
 
 - **Local scanning** through a FastAPI backend. Target code is read, not executed.
-- **Dependency extraction** for Python, JavaScript/TypeScript, TypeScript path aliases, dynamic imports, re-exports, type-checking imports, lazy/local imports, and C/C++ includes.
+- **Dependency extraction** for Python, JavaScript/TypeScript (with path aliases, dynamic imports, re-exports, type-checking and lazy imports), C/C++ includes, Go, Java, Ruby, Rust, and PHP, plus import/symbol visibility for C#, Kotlin, Swift, and Scala.
+- **Framework route map** extracting HTTP routes from FastAPI, Flask, Django, Express, Spring, Go, Laravel, and Rails, each linked back to its handler file.
 - **Scoped edge labels** so dependencies are not all treated equally. Top-level imports, lazy/local imports, conditional imports, type-checking imports, re-exports, and dynamic imports are labeled separately.
 - **Repository insights** with ranked "Start here" findings, confidence labels, risk hotspots, likely entry points, reading order, packages by risk, folder summaries, cycles, large files, possibly-unused files, unresolved imports, and dependency hubs.
 - **Git intelligence** (when the scan root is inside a Git repository): per-file churn, bug-fix-commit count, recency, primary owner with ownership share, and package-level bus factor, read from recent history. It degrades cleanly to static-only metrics outside a repo, with no fabricated values.
 - **Risk scoring** for files and packages from size, complexity, coupling, unresolved imports, static security hints, and — when available — Git churn and bug-fix frequency.
 - **Package graph view** that compresses the repo into risk-ranked packages with ownership, bus factor, and weighted cross-package edges; click a package to drill into its files.
-- **Symbol hotspots** for functions/classes inside Python and JavaScript/TypeScript files, capped to the symbols most likely to matter.
-- **Static security and framework hints** for obvious secret-like values, unsafe APIs, FastAPI/Flask/Django surfaces, React roots, and Node-style route files.
+- **Symbol hotspots** for functions/classes inside Python, JavaScript/TypeScript, and the other supported languages, capped to the symbols most likely to matter.
+- **Static security and framework hints** for obvious secret-like values, unsafe APIs, and framework surfaces across FastAPI/Flask/Django, React/Node, Spring, Rails, Laravel, Go, and Rust web code.
 - **Large-repo controls** with file caps, truncation warnings, graph search, extension/folder filters, hide-tests, connected-only, hubs, issues, and neighborhood mode.
 - **Selected-file impact** showing direct dependencies, direct dependents, second-order dependents, likely affected tests, and Git history.
 - **React Flow canvas** with file and package views, an external-dependency layer toggle, draggable nodes, zoom/pan, minimap, saved node positions, and reset layout.
@@ -136,7 +137,7 @@ Minimal analyze request:
 }
 ```
 
-The analyze response includes `nodes`, scoped `edges`, `folder_summaries`, `package_summaries`, `package_edges`, `cycles`, `repo_report`, a `git` summary, and scan `stats` such as `total_files_found`, `analyzed_files`, `skipped_files`, `truncated`, and `warnings`.
+The analyze response includes `nodes`, scoped `edges`, `folder_summaries`, `package_summaries`, `package_edges`, `routes`, `cycles`, `repo_report`, a `git` summary, and scan `stats` such as `total_files_found`, `analyzed_files`, `skipped_files`, `truncated`, and `warnings`.
 
 Each file node includes:
 
