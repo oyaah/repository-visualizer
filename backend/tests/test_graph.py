@@ -23,6 +23,43 @@ def test_graph_resolves_javascript_and_c_dependencies(tmp_path: Path) -> None:
     assert "stdio.h" in main_node.external_imports
 
 
+def test_graph_resolves_extra_languages_and_routes(tmp_path: Path) -> None:
+    (tmp_path / "go" / "api").mkdir(parents=True)
+    (tmp_path / "go" / "main.go").write_text('package main\nimport "repo/go/api"\nfunc main() {}\n', encoding="utf-8")
+    (tmp_path / "go" / "api" / "handler.go").write_text('package api\nfunc Register() { r.GET("/health", h) }\n', encoding="utf-8")
+    (tmp_path / "src" / "main" / "java" / "com" / "app").mkdir(parents=True)
+    (tmp_path / "src" / "main" / "java" / "com" / "app" / "App.java").write_text('import com.app.Controller;\nclass App { public static void main(String[] args) {} }\n', encoding="utf-8")
+    (tmp_path / "src" / "main" / "java" / "com" / "app" / "Controller.java").write_text('@RestController class Controller { @GetMapping("/ping") void ping(){} }\n', encoding="utf-8")
+    (tmp_path / "lib").mkdir()
+    (tmp_path / "app.rb").write_text("require_relative 'lib/tool'\nget '/home'\n", encoding="utf-8")
+    (tmp_path / "lib" / "tool.rb").write_text("class Tool\nend\n", encoding="utf-8")
+    (tmp_path / "src").mkdir(exist_ok=True)
+    (tmp_path / "src" / "main.rs").write_text("mod worker;\nfn main() {}\n", encoding="utf-8")
+    (tmp_path / "src" / "worker.rs").write_text("pub fn run() {}\n", encoding="utf-8")
+    (tmp_path / "index.php").write_text("<?php require 'lib.php'; Route::get('/login', 'x');", encoding="utf-8")
+    (tmp_path / "lib.php").write_text("<?php class Lib {}", encoding="utf-8")
+    (tmp_path / "strings.py").write_text('PATTERN = "@app.get(\\"/fake\\")"\n', encoding="utf-8")
+
+    graph = build_graph(tmp_path)
+
+    edges = {(edge.source, edge.target) for edge in graph.edges}
+    assert ("go/main.go", "go/api/handler.go") in edges
+    assert ("src/main/java/com/app/App.java", "src/main/java/com/app/Controller.java") in edges
+    assert ("app.rb", "lib/tool.rb") in edges
+    assert ("src/main.rs", "src/worker.rs") in edges
+    assert ("index.php", "lib.php") in edges
+    routes = {(route.method, route.path, route.framework) for route in graph.routes}
+    assert ("GET", "/health", "go-http") in routes
+    assert ("GET", "/ping", "spring") in routes
+    assert ("GET", "/home", "rails") in routes
+    assert ("GET", "/login", "laravel") in routes
+    assert ("GET", "/fake", "python") not in routes
+    entries = {(entry.kind, entry.file_path) for entry in graph.repo_report.entry_points}
+    assert ("go_main", "go/main.go") in entries
+    assert ("java_main", "src/main/java/com/app/App.java") in entries
+    assert ("rust_main", "src/main.rs") in entries
+
+
 def test_graph_resolves_python_src_layout_imports(tmp_path: Path) -> None:
     (tmp_path / "src" / "pkg").mkdir(parents=True)
     (tmp_path / "src" / "pkg" / "__init__.py").write_text("", encoding="utf-8")

@@ -8,6 +8,7 @@ It is built for onboarding and refactoring. Instead of dumping a giant graph and
 - Which files are risky, bloated, highly coupled, or changed most often?
 - What imports what, and is that dependency top-level, lazy, conditional, type-checking, re-exported, or dynamic?
 - Which package/folder owns most of the risk, and who is its primary author?
+- Which web routes and app entry points exist?
 - What could break if I change this file?
 - Which file-level functions/classes deserve attention before a refactor?
 
@@ -16,14 +17,14 @@ It is built for onboarding and refactoring. Instead of dumping a giant graph and
 ## Features
 
 - **Local scanning** through a FastAPI backend. Target code is read, not executed.
-- **Dependency extraction** for Python, JavaScript/TypeScript, TypeScript path aliases, dynamic imports, re-exports, type-checking imports, lazy/local imports, and C/C++ includes.
+- **Dependency extraction** for Python, JavaScript/TypeScript, TypeScript path aliases, dynamic imports, re-exports, type-checking imports, lazy/local imports, C/C++ includes, Go imports, Java imports, Ruby requires, Rust modules/uses, PHP includes/uses, and lightweight C#/Kotlin/Swift/Scala imports.
 - **Scoped edge labels** so dependencies are not all treated equally. Top-level imports, lazy/local imports, conditional imports, type-checking imports, re-exports, and dynamic imports are labeled separately.
-- **Repository insights** with ranked "Start here" findings, confidence labels, risk hotspots, likely entry points, reading order, packages by risk, folder summaries, cycles, large files, possibly-unused files, unresolved imports, and dependency hubs.
+- **Repository insights** with ranked "Start here" findings, confidence labels, risk hotspots, likely entry points, detected routes, reading order, packages by risk, folder summaries, cycles, large files, possibly-unused files, unresolved imports, and dependency hubs.
 - **Git intelligence** (when the scan root is inside a Git repository): per-file churn, bug-fix-commit count, recency, primary owner with ownership share, and package-level bus factor, read from recent history. It degrades cleanly to static-only metrics outside a repo, with no fabricated values.
 - **Risk scoring** for files and packages from size, complexity, coupling, unresolved imports, static security hints, and — when available — Git churn and bug-fix frequency.
 - **Package graph view** that compresses the repo into risk-ranked packages with ownership, bus factor, and weighted cross-package edges; click a package to drill into its files.
-- **Symbol hotspots** for functions/classes inside Python and JavaScript/TypeScript files, capped to the symbols most likely to matter.
-- **Static security and framework hints** for obvious secret-like values, unsafe APIs, FastAPI/Flask/Django surfaces, React roots, and Node-style route files.
+- **Symbol hotspots** for functions/classes inside Python, JavaScript/TypeScript, Go, Java, Ruby, Rust, PHP, C#, Kotlin, Swift, and Scala files, capped to the symbols most likely to matter.
+- **Static security, framework, and route hints** for obvious secret-like values, unsafe APIs, FastAPI/Flask/Django, Express, Spring, Go HTTP, Rails, Laravel, Rust web surfaces, React roots, and Node-style route files.
 - **Large-repo controls** with file caps, truncation warnings, graph search, extension/folder filters, hide-tests, connected-only, hubs, issues, and neighborhood mode.
 - **Selected-file impact** showing direct dependencies, direct dependents, second-order dependents, likely affected tests, and Git history.
 - **React Flow canvas** with file and package views, an external-dependency layer toggle, draggable nodes, zoom/pan, minimap, saved node positions, and reset layout.
@@ -40,7 +41,7 @@ It is built for onboarding and refactoring. Instead of dumping a giant graph and
 ## How It Works
 
 1. The backend scans supported source files under a local path.
-2. Static parsers extract imports/includes, dependency scope, symbols, and lightweight hints.
+2. Static parsers extract imports/includes, dependency scope, symbols, routes, and lightweight hints.
 3. The analyzer resolves local edges and calculates LoC, size, branch complexity, maintainability, risk score, dependency count, and dependent count.
 4. The report builder ranks files, packages, cycles, hubs, entry points, and likely reading order.
 5. The frontend renders the graph, filters, selected-file impact, package insights, exports, and optional summary panel.
@@ -136,7 +137,7 @@ Minimal analyze request:
 }
 ```
 
-The analyze response includes `nodes`, scoped `edges`, `folder_summaries`, `package_summaries`, `package_edges`, `cycles`, `repo_report`, a `git` summary, and scan `stats` such as `total_files_found`, `analyzed_files`, `skipped_files`, `truncated`, and `warnings`.
+The analyze response includes `nodes`, scoped `edges`, `folder_summaries`, `package_summaries`, `package_edges`, `routes`, `cycles`, `repo_report`, a `git` summary, and scan `stats` such as `total_files_found`, `analyzed_files`, `skipped_files`, `truncated`, and `warnings`.
 
 Each file node includes:
 

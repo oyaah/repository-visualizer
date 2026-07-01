@@ -164,6 +164,13 @@ class EntryPointSummary(BaseModel):
     detail: str
 
 
+class RouteSummary(BaseModel):
+    method: str
+    path: str
+    file_path: str
+    framework: str
+
+
 class RepoReport(BaseModel):
     start_here: list[ReportFinding] = Field(default_factory=list)
     entry_points: list[EntryPointSummary] = Field(default_factory=list)
@@ -178,6 +185,7 @@ class GraphResponse(BaseModel):
     folder_summaries: list[FolderSummary] = Field(default_factory=list)
     package_summaries: list[PackageSummary] = Field(default_factory=list)
     package_edges: list[PackageEdge] = Field(default_factory=list)
+    routes: list[RouteSummary] = Field(default_factory=list)
     cycles: list[CycleSummary] = Field(default_factory=list)
     repo_report: RepoReport = Field(default_factory=RepoReport)
     git: GitSummary = Field(default_factory=lambda: GitSummary(available=False))

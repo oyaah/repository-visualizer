@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 import json
@@ -27,11 +28,12 @@ from app.models import (
     PackageSummary,
     RepoReport,
     ReportFinding,
+    RouteSummary,
 )
 from app.parsers import Dependency, parse_dependencies, parse_symbols
 from app.scanner import ScannedFile, scan_repository
 
-RESOLUTION_EXTENSIONS = ["", ".py", ".js", ".jsx", ".ts", ".tsx", ".c", ".h", ".cc", ".cpp", ".hpp", "/index.js", "/index.ts", "/__init__.py"]
+RESOLUTION_EXTENSIONS = ["", ".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".c", ".h", ".cc", ".cpp", ".hpp", ".go", ".java", ".rb", ".rs", ".php", "/index.js", "/index.ts", "/__init__.py", "/mod.rs"]
 AWS_KEY_PATTERN = re.compile(r"AKIA[0-9A-Z]{16}")
 PRIVATE_KEY_PATTERN = re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----")
 SECRET_ASSIGNMENT_PATTERN = re.compile(r"(?i)(api_key|apikey|secret|password|passwd|private_key)\s*[:=]\s*['\"][0-9A-Za-z_\-]{16,}['\"]")
@@ -112,6 +114,7 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
     folder_summaries = build_folder_summaries(sorted_nodes)
     package_summaries = build_package_summaries(sorted_nodes, history)
     package_edges = build_package_edges(sorted_nodes)
+    routes = extract_routes(scanned_files)
     cycles = find_cycles(sorted_nodes, sorted_edges)
 
     return GraphResponse(
@@ -121,6 +124,7 @@ def build_graph(root: Path, options: AnalyzeRequest | None = None) -> GraphRespo
         folder_summaries=folder_summaries,
         package_summaries=package_summaries,
         package_edges=package_edges,
+        routes=routes,
         cycles=cycles,
         repo_report=build_repo_report(root, sorted_nodes, cycles, scanned_files),
         git=GitSummary(
@@ -469,16 +473,97 @@ def detect_entry_point(item: ScannedFile) -> EntryPointSummary | None:
             return entry(item, "python_web", "Likely Python web routes", "Defines web route handlers.")
         if "Flask(" in text or "@app.route(" in text:
             return entry(item, "python_web", "Likely Flask app", "Defines a Flask app or route.")
-    if item.extension in {".js", ".jsx", ".ts", ".tsx"}:
+    if item.extension in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}:
         if "createRoot(" in text or "ReactDOM.render(" in text:
             return entry(item, "react_root", "Likely React root", "Mounts the React application.")
     if item.extension in {".c", ".cc", ".cpp"} and re.search(r"\bint\s+main\s*\(", text):
         return entry(item, "native_main", "Likely native entry point", "Defines a C/C++ main function.")
+    if item.extension == ".go" and re.search(r"\bfunc\s+main\s*\(", text):
+        return entry(item, "go_main", "Likely Go entry point", "Defines a Go main function.")
+    if item.extension == ".java" and re.search(r"public\s+static\s+void\s+main\s*\(", text):
+        return entry(item, "java_main", "Likely Java entry point", "Defines a Java main method.")
+    if item.extension == ".rs" and re.search(r"\bfn\s+main\s*\(", text):
+        return entry(item, "rust_main", "Likely Rust entry point", "Defines a Rust main function.")
     return None
 
 
 def entry(item: ScannedFile, kind: str, label: str, detail: str) -> EntryPointSummary:
     return EntryPointSummary(kind=kind, file_path=item.relative_path, label=label, detail=detail)
+
+
+JS_ROUTE = re.compile(r"""\b(?:app|router)\.(get|post|put|patch|delete|all)\(\s*['"]([^'"]+)['"]""")
+SPRING_ROUTE = re.compile(r"""@(Get|Post|Put|Patch|Delete|Request)Mapping\(\s*(?:value\s*=\s*|path\s*=\s*)?['"]([^'"]+)['"]""")
+GO_ROUTE = re.compile(r"""\b\w+\.(GET|POST|PUT|PATCH|DELETE|Handle|HandleFunc)\(\s*['"]([^'"]+)['"]""")
+LARAVEL_ROUTE = re.compile(r"""Route::(get|post|put|patch|delete|any)\(\s*['"]([^'"]+)['"]""")
+RAILS_ROUTE = re.compile(r"""^\s*(get|post|put|patch|delete)\s+['"]([^'"]+)['"]""", re.MULTILINE)
+
+
+def extract_routes(files: list[ScannedFile]) -> list[RouteSummary]:
+    routes: list[RouteSummary] = []
+    for item in files:
+        text = item.text
+        if item.extension == ".py":
+            routes.extend(extract_python_routes(text, item.relative_path))
+        elif item.extension in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}:
+            routes.extend(RouteSummary(method=match.group(1).upper(), path=match.group(2), file_path=item.relative_path, framework="express") for match in JS_ROUTE.finditer(text))
+        elif item.extension == ".java":
+            routes.extend(RouteSummary(method="ANY" if match.group(1) == "Request" else match.group(1).upper(), path=match.group(2), file_path=item.relative_path, framework="spring") for match in SPRING_ROUTE.finditer(text))
+        elif item.extension == ".go":
+            routes.extend(RouteSummary(method="ANY" if match.group(1).startswith("Handle") else match.group(1), path=match.group(2), file_path=item.relative_path, framework="go-http") for match in GO_ROUTE.finditer(text))
+        elif item.extension == ".php":
+            routes.extend(RouteSummary(method=match.group(1).upper(), path=match.group(2), file_path=item.relative_path, framework="laravel") for match in LARAVEL_ROUTE.finditer(text))
+        elif item.extension == ".rb":
+            routes.extend(RouteSummary(method=match.group(1).upper(), path=match.group(2), file_path=item.relative_path, framework="rails") for match in RAILS_ROUTE.finditer(text))
+    return sorted(routes, key=lambda route: (route.file_path, route.path, route.method))[:200]
+
+
+def extract_python_routes(text: str, file_path: str) -> list[RouteSummary]:
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        return []
+    routes: list[RouteSummary] = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            for decorator in node.decorator_list:
+                route = python_decorator_route(decorator, file_path)
+                if route:
+                    routes.append(route)
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id in {"path", "re_path", "url"}:
+            path = first_string_arg(node)
+            if path:
+                routes.append(RouteSummary(method="ANY", path=path, file_path=file_path, framework="django"))
+    return routes
+
+
+def python_decorator_route(node: ast.AST, file_path: str) -> RouteSummary | None:
+    if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+        return None
+    path = first_string_arg(node)
+    if not path:
+        return None
+    method = node.func.attr.lower()
+    if method == "route":
+        return RouteSummary(method=route_methods(node), path=path, file_path=file_path, framework="flask")
+    if method in {"get", "post", "put", "patch", "delete", "websocket"}:
+        return RouteSummary(method=method.upper(), path=path, file_path=file_path, framework="python")
+    return None
+
+
+def first_string_arg(node: ast.Call) -> str | None:
+    if node.args and isinstance(node.args[0], ast.Constant) and isinstance(node.args[0].value, str):
+        return node.args[0].value
+    return None
+
+
+def route_methods(node: ast.Call) -> str:
+    for keyword in node.keywords:
+        if keyword.arg != "methods":
+            continue
+        if isinstance(keyword.value, ast.List):
+            methods = [item.value.upper() for item in keyword.value.elts if isinstance(item, ast.Constant) and isinstance(item.value, str)]
+            return ",".join(methods) if methods else "GET"
+    return "GET"
 
 
 def build_folder_summaries(nodes: list[GraphNode]) -> list[FolderSummary]:
@@ -632,11 +717,21 @@ def detect_framework_hints(item: ScannedFile) -> list[CodeHint]:
             hints.append(CodeHint(kind="framework", title="Flask surface", detail="Defines a Flask app, blueprint, or route.", severity="low"))
         if "urlpatterns" in text or "INSTALLED_APPS" in text or "ROOT_URLCONF" in text:
             hints.append(CodeHint(kind="framework", title="Django configuration surface", detail="Defines Django URL, settings, or app configuration.", severity="low"))
-    if item.extension in {".js", ".jsx", ".ts", ".tsx"}:
+    if item.extension in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}:
         if "createRoot(" in text or "ReactDOM.render(" in text:
             hints.append(CodeHint(kind="framework", title="React root", detail="Mounts the React application.", severity="low"))
         if "express(" in text or ".get(" in text and "req" in text and "res" in text:
             hints.append(CodeHint(kind="framework", title="Node route surface", detail="Looks like an Express-style route file.", severity="low"))
+    if item.extension == ".go" and ("http.HandleFunc(" in text or ".GET(" in text or ".POST(" in text):
+        hints.append(CodeHint(kind="framework", title="Go HTTP surface", detail="Registers Go HTTP routes or handlers.", severity="low"))
+    if item.extension == ".java" and ("@RestController" in text or "@RequestMapping" in text or "@GetMapping" in text or "@SpringBootApplication" in text):
+        hints.append(CodeHint(kind="framework", title="Spring surface", detail="Defines a Spring controller or application.", severity="low"))
+    if item.extension == ".rb" and ("Rails.application" in text or "< ApplicationController" in text):
+        hints.append(CodeHint(kind="framework", title="Rails surface", detail="Defines a Rails app or controller.", severity="low"))
+    if item.extension == ".php" and ("Route::" in text or "extends Controller" in text or "Illuminate\\" in text):
+        hints.append(CodeHint(kind="framework", title="Laravel surface", detail="Defines Laravel routes or a controller.", severity="low"))
+    if item.extension == ".rs" and ("HttpServer::new" in text or "Router::new" in text or "actix_web" in text or "axum::" in text):
+        hints.append(CodeHint(kind="framework", title="Rust web surface", detail="Registers Actix or Axum routes.", severity="low"))
     return hints
 
 
@@ -708,12 +803,57 @@ def find_cycles(nodes: list[GraphNode], edges: list[GraphEdge]) -> list[CycleSum
 def resolve_dependency(source: ScannedFile, dependency: Dependency, files: dict[str, ScannedFile], ts_aliases: list[TsPathAlias] | None = None) -> str | None:
     if source.extension == ".py":
         return resolve_python_dependency(source, dependency, files)
-    if source.extension in {".js", ".jsx", ".ts", ".tsx"}:
+    if source.extension in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}:
         if dependency.is_relative:
             return resolve_path_like_dependency(source, dependency.raw, files)
         return resolve_ts_alias_dependency(dependency.raw, files, ts_aliases or [])
     if source.extension in {".c", ".h", ".cc", ".cpp", ".hpp"} and dependency.is_relative:
         return resolve_path_like_dependency(source, dependency.raw, files)
+    if source.extension == ".go":
+        return resolve_go_dependency(dependency, files)
+    if source.extension == ".java":
+        return resolve_java_dependency(dependency, files)
+    if source.extension == ".rb":
+        return resolve_path_like_dependency(source, dependency.raw, files) if dependency.is_relative else first_existing_candidate(dependency.raw, files) or first_existing_candidate(f"lib/{dependency.raw}", files)
+    if source.extension == ".rs":
+        return resolve_rust_dependency(source, dependency, files)
+    if source.extension == ".php" and dependency.is_relative:
+        return resolve_path_like_dependency(source, dependency.raw.lstrip("./"), files)
+    return None
+
+
+def resolve_go_dependency(dependency: Dependency, files: dict[str, ScannedFile]) -> str | None:
+    go_files = sorted(path for path in files if path.endswith(".go"))
+    for start in range(len(dependency.raw.split("/"))):
+        suffix = "/".join(dependency.raw.split("/")[start:])
+        for path in go_files:
+            folder = posixpath.dirname(path)
+            if folder == suffix or folder.endswith("/" + suffix):
+                return path
+    return None
+
+
+def resolve_java_dependency(dependency: Dependency, files: dict[str, ScannedFile]) -> str | None:
+    if dependency.raw.endswith(".*"):
+        return None
+    target = dependency.raw.replace(".", "/") + ".java"
+    return next((path for path in files if path == target or path.endswith("/" + target)), None)
+
+
+def resolve_rust_dependency(source: ScannedFile, dependency: Dependency, files: dict[str, ScannedFile]) -> str | None:
+    base = Path(source.relative_path).parent
+    raw = dependency.raw
+    if "::" not in raw:
+        return first_existing_candidate((base / raw).as_posix(), files) or first_existing_candidate((base / raw / "mod").as_posix(), files)
+    head, *rest = raw.split("::")
+    sub = "/".join(rest)
+    if not sub:
+        return None
+    if head == "crate":
+        return first_existing_candidate(f"src/{sub}", files) or first_existing_candidate(f"src/{sub}/mod", files) or first_existing_candidate(sub, files)
+    if head in {"self", "super"}:
+        anchor = base if head == "self" else base.parent
+        return first_existing_candidate((anchor / sub).as_posix(), files) or first_existing_candidate((anchor / sub / "mod").as_posix(), files)
     return None
 
 

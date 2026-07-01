@@ -131,6 +131,13 @@ export type EntryPointSummary = {
   detail: string;
 };
 
+export type RouteSummary = {
+  method: string;
+  path: string;
+  file_path: string;
+  framework: string;
+};
+
 export type RepoReport = {
   start_here: ReportFinding[];
   entry_points: EntryPointSummary[];
@@ -145,6 +152,7 @@ export type GraphResponse = {
   folder_summaries: FolderSummary[];
   package_summaries?: PackageSummary[];
   package_edges?: PackageEdge[];
+  routes?: RouteSummary[];
   cycles: CycleSummary[];
   repo_report: RepoReport;
   git?: GitSummary;

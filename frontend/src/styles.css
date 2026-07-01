@@ -431,6 +431,12 @@ h1 {
   font-size: 12px;
 }
 
+.route-method {
+  margin-right: 4px;
+  color: var(--accent);
+  font-weight: 800;
+}
+
 .start-here button span {
   display: grid;
   gap: 3px;

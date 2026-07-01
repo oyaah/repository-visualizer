@@ -41,10 +41,22 @@ def parse_dependencies(relative_path: str, text: str) -> list[Dependency]:
     extension = Path(relative_path).suffix.lower()
     if extension == ".py":
         deps = parse_python_dependencies(text)
-    elif extension in {".js", ".jsx", ".ts", ".tsx"}:
+    elif extension in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}:
         deps = parse_javascript_dependencies(text)
     elif extension in {".c", ".h", ".cc", ".cpp", ".hpp"}:
         deps = parse_c_dependencies(text)
+    elif extension == ".go":
+        deps = parse_go_dependencies(text)
+    elif extension == ".java":
+        deps = parse_java_dependencies(text)
+    elif extension == ".rb":
+        deps = parse_ruby_dependencies(text)
+    elif extension == ".rs":
+        deps = parse_rust_dependencies(text)
+    elif extension == ".php":
+        deps = parse_php_dependencies(text)
+    elif extension in {".cs", ".kt", ".kts", ".swift", ".scala"}:
+        deps = parse_generic_import_dependencies(text)
     else:
         deps = []
 
@@ -214,13 +226,82 @@ def parse_c_dependencies(text: str) -> list[Dependency]:
     return deps
 
 
+GO_SINGLE_IMPORT = re.compile(r'^\s*import\s+(?:[\w.]+\s+)?"([^"]+)"', re.MULTILINE)
+GO_IMPORT_BLOCK = re.compile(r"import\s*\(([^)]*)\)", re.DOTALL)
+GO_BLOCK_LINE = re.compile(r'(?:[\w.]+\s+)?"([^"]+)"')
+JAVA_IMPORT = re.compile(r"^\s*import\s+(?:static\s+)?([\w.]+(?:\.\*)?)\s*;", re.MULTILINE)
+RUBY_REQUIRE_RELATIVE = re.compile(r"""require_relative\s+['"]([^'"]+)['"]""")
+RUBY_REQUIRE = re.compile(r"""(?<!_relative)\brequire\s+['"]([^'"]+)['"]""")
+RUST_MOD = re.compile(r"^\s*(?:pub\s+)?mod\s+([A-Za-z_]\w*)\s*;", re.MULTILINE)
+RUST_USE = re.compile(r"^\s*(?:pub\s+)?use\s+([\w:]+)", re.MULTILINE)
+PHP_INCLUDE = re.compile(r"""(?:require|include)(?:_once)?\s*\(?\s*['"]([^'"]+)['"]""")
+PHP_USE = re.compile(r"^\s*use\s+([\w\\]+)", re.MULTILINE)
+GENERIC_IMPORT = re.compile(r"^\s*(?:import|using)\s+([\w.]+)", re.MULTILINE)
+GENERIC_SYMBOL_PATTERN = re.compile(
+    r"^\s*(?:(?:public|private|protected|internal|static|final|abstract|open|override|suspend|pub|async)\s+)*"
+    r"(class|struct|interface|enum|trait|object|impl|func|fn|def|type)\s+([A-Za-z_]\w*)",
+    re.MULTILINE,
+)
+GENERIC_SYMBOL_KINDS = {"class", "struct", "interface", "enum", "trait", "object", "impl", "type"}
+
+
+def parse_go_dependencies(text: str) -> list[Dependency]:
+    deps = [Dependency(raw=match.group(1), kind=EdgeKind.IMPORT) for match in GO_SINGLE_IMPORT.finditer(text)]
+    for block in GO_IMPORT_BLOCK.finditer(text):
+        for line in block.group(1).splitlines():
+            inner = GO_BLOCK_LINE.search(line.strip())
+            if inner:
+                deps.append(Dependency(raw=inner.group(1), kind=EdgeKind.IMPORT))
+    return deps
+
+
+def parse_java_dependencies(text: str) -> list[Dependency]:
+    return [Dependency(raw=match.group(1), kind=EdgeKind.IMPORT) for match in JAVA_IMPORT.finditer(text)]
+
+
+def parse_ruby_dependencies(text: str) -> list[Dependency]:
+    deps = [Dependency(raw=match.group(1), kind=EdgeKind.IMPORT, is_relative=True) for match in RUBY_REQUIRE_RELATIVE.finditer(text)]
+    deps.extend(Dependency(raw=match.group(1), kind=EdgeKind.IMPORT) for match in RUBY_REQUIRE.finditer(text))
+    return deps
+
+
+def parse_rust_dependencies(text: str) -> list[Dependency]:
+    deps = [Dependency(raw=match.group(1), kind=EdgeKind.IMPORT, is_relative=True) for match in RUST_MOD.finditer(text)]
+    deps.extend(Dependency(raw=match.group(1), kind=EdgeKind.IMPORT, is_relative=match.group(1).startswith(("crate", "self", "super"))) for match in RUST_USE.finditer(text))
+    return deps
+
+
+def parse_php_dependencies(text: str) -> list[Dependency]:
+    deps = [Dependency(raw=match.group(1), kind=EdgeKind.IMPORT, is_relative=True) for match in PHP_INCLUDE.finditer(text)]
+    deps.extend(Dependency(raw=match.group(1), kind=EdgeKind.IMPORT) for match in PHP_USE.finditer(text))
+    return deps
+
+
+def parse_generic_import_dependencies(text: str) -> list[Dependency]:
+    return [Dependency(raw=match.group(1), kind=EdgeKind.IMPORT) for match in GENERIC_IMPORT.finditer(text)]
+
+
 def parse_symbols(relative_path: str, text: str) -> list[CodeSymbol]:
     extension = Path(relative_path).suffix.lower()
     if extension == ".py":
         return parse_python_symbols(text)
-    if extension in {".js", ".jsx", ".ts", ".tsx"}:
+    if extension in {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}:
         return parse_javascript_symbols(text)
+    if extension in {".go", ".java", ".rb", ".rs", ".php", ".cs", ".kt", ".kts", ".swift", ".scala"}:
+        return parse_generic_symbols(text)
     return []
+
+
+def parse_generic_symbols(text: str) -> list[CodeSymbol]:
+    symbols = []
+    lines = text.splitlines()
+    for match in GENERIC_SYMBOL_PATTERN.finditer(text):
+        keyword, name = match.groups()
+        line = text.count("\n", 0, match.start()) + 1
+        line_text = lines[line - 1] if line - 1 < len(lines) else ""
+        kind = "class" if keyword in GENERIC_SYMBOL_KINDS else "function"
+        symbols.append(CodeSymbol(name=name, kind=kind, line=line, complexity=symbol_complexity(line_text)))
+    return sorted(symbols, key=lambda item: (-item.complexity, item.line, item.name))[:8]
 
 
 def parse_python_symbols(text: str) -> list[CodeSymbol]:
