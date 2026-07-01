@@ -13,6 +13,12 @@ It is built for onboarding and refactoring. Instead of dumping a giant graph and
 - Which file-level functions/classes deserve attention before a refactor?
 
 ![Repository Visualizer package view: a clean package graph with cross-package links, risk scores, repository insights, hotspots, and reading order](docs/assets/repository-visualizer.png)
+https://github.com/psf/requests- package level overview of the repo.
+
+<img width="1600" height="1400" alt="image" src="https://github.com/user-attachments/assets/d7eee849-f9c5-4b6a-8c1d-e042bed1b92a" />
+File level view of this repo itself.
+
+
 
 ## Features
 
