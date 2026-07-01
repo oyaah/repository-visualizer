@@ -12,7 +12,7 @@ It is built for onboarding and refactoring. Instead of dumping a giant graph and
 - What could break if I change this file?
 - Which file-level functions/classes deserve attention before a refactor?
 
-![Repository Visualizer package view: a clean package graph with cross-package links, risk scores, repository insights, hotspots, and reading order](docs/assets/repository-visualizer.png)
+![Repository Visualizer file view: a risk-colored file dependency graph with visible import connections and per-file Git badges on the left, and churn-driven Start-here findings, risk hotspots, and packages by risk on the right](docs/assets/repository-visualizer.png)
 https://github.com/psf/requests- package level overview of the repo.
 
 <img width="1600" height="1400" alt="image" src="https://github.com/user-attachments/assets/d7eee849-f9c5-4b6a-8c1d-e042bed1b92a" />
